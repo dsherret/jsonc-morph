@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(deno task:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:david.deno.dev)",
+      "Bash(deno check:*)",
+      "Bash(deno test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
