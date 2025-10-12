@@ -6,7 +6,8 @@
       "WebFetch(domain:docs.rs)",
       "WebFetch(domain:david.deno.dev)",
       "Bash(deno check:*)",
-      "Bash(deno test:*)"
+      "Bash(deno test:*)",
+      "Bash(cargo doc:*)"
     ],
     "deny": [],
     "ask": []

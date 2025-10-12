@@ -70,7 +70,9 @@ Deno.test("JsonObject - get properties", () => {
   const props = obj.properties();
   assertEquals(props.length, 3);
 
-  const names = props.map((p) => p.name()).filter((n) => n !== undefined);
+  const names = props.map((p) => p.name()?.decodedValue()).filter((n) =>
+    n !== undefined
+  );
   assertEquals(names, ["name", "value", "active"]);
 });
 
@@ -83,7 +85,7 @@ Deno.test("JsonObject - get property by key", () => {
 
   const nameProp = obj.get("name");
   assertExists(nameProp);
-  assertEquals(nameProp.name(), "name");
+  assertEquals(nameProp.name()?.decodedValue(), "name");
 
   const nonExistent = obj.get("nonexistent");
   assertEquals(nonExistent, undefined);
@@ -101,7 +103,7 @@ Deno.test("JsonObject - nested object access", () => {
 
   const debugProp = configObj.get("debug");
   assertExists(debugProp);
-  assertEquals(debugProp.name(), "debug");
+  assertEquals(debugProp.name()?.decodedValue(), "debug");
 });
 
 Deno.test("JsonObject - nested array access", () => {
@@ -703,7 +705,7 @@ Deno.test("JsonObjectProp - previousProperty navigates to previous", () => {
 
   const aProp = bProp.previousProperty();
   assertExists(aProp);
-  assertEquals(aProp.name(), "a");
+  assertEquals(aProp.name()?.decodedValue(), "a");
 });
 
 Deno.test("JsonObjectProp - nextProperty navigates to next", () => {
@@ -717,7 +719,7 @@ Deno.test("JsonObjectProp - nextProperty navigates to next", () => {
 
   const cProp = bProp.nextProperty();
   assertExists(cProp);
-  assertEquals(cProp.name(), "c");
+  assertEquals(cProp.name()?.decodedValue(), "c");
 });
 
 Deno.test("Node - parent returns parent node", () => {
@@ -955,7 +957,7 @@ Deno.test("JsonObject.getOrThrow - returns property when found", () => {
 
   const nameProp = obj.getOrThrow("name");
   assertExists(nameProp);
-  assertEquals(nameProp.name(), "name");
+  assertEquals(nameProp.name()?.decodedValue(), "name");
 });
 
 Deno.test("JsonObject.getOrThrow - throws when property not found", () => {
@@ -1178,7 +1180,7 @@ Deno.test("JsonObjectProp.nameOrThrow - returns name when present", () => {
   const prop = obj.getOrThrow("test");
 
   const name = prop.nameOrThrow();
-  assertEquals(name, "test");
+  assertEquals(name.decodedValue(), "test");
 });
 
 Deno.test("JsonObjectProp.valueOrThrow - returns value when present", () => {

@@ -45,11 +45,14 @@ rootObj.getOrThrow("data").setValue({
 rootObj.append("new_key", [456, 789, false]);
 
 // inspect the output
-assertEquals(root.toString(), `{
+assertEquals(
+  root.toString(),
+  `{
   // 1
   "data" /* 2 */: {
     "nested": true
   }, // 3
   "new_key": [456, 789, false]
-} // 4`);
+} // 4`,
+);
 ```

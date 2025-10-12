@@ -423,6 +423,86 @@ impl Node {
     matches!(self.inner, JsoncCstNode::Leaf(CstLeafNode::BooleanLit(_)))
   }
 
+  #[wasm_bindgen(js_name = asStringLit)]
+  pub fn as_string_lit(&self) -> Option<StringLit> {
+    match &self.inner {
+      JsoncCstNode::Leaf(CstLeafNode::StringLit(s)) => {
+        Some(StringLit { inner: s.clone() })
+      }
+      _ => None,
+    }
+  }
+
+  #[wasm_bindgen(js_name = asStringLitOrThrow)]
+  pub fn as_string_lit_or_throw(&self) -> Result<StringLit, JsValue> {
+    self.as_string_lit()
+      .ok_or_else(|| throw_error("Expected a string literal node, but found a different type"))
+  }
+
+  #[wasm_bindgen(js_name = asNumberLit)]
+  pub fn as_number_lit(&self) -> Option<NumberLit> {
+    match &self.inner {
+      JsoncCstNode::Leaf(CstLeafNode::NumberLit(n)) => {
+        Some(NumberLit { inner: n.clone() })
+      }
+      _ => None,
+    }
+  }
+
+  #[wasm_bindgen(js_name = asNumberLitOrThrow)]
+  pub fn as_number_lit_or_throw(&self) -> Result<NumberLit, JsValue> {
+    self.as_number_lit()
+      .ok_or_else(|| throw_error("Expected a number literal node, but found a different type"))
+  }
+
+  #[wasm_bindgen(js_name = asBooleanLit)]
+  pub fn as_boolean_lit(&self) -> Option<BooleanLit> {
+    match &self.inner {
+      JsoncCstNode::Leaf(CstLeafNode::BooleanLit(b)) => {
+        Some(BooleanLit { inner: b.clone() })
+      }
+      _ => None,
+    }
+  }
+
+  #[wasm_bindgen(js_name = asBooleanLitOrThrow)]
+  pub fn as_boolean_lit_or_throw(&self) -> Result<BooleanLit, JsValue> {
+    self.as_boolean_lit()
+      .ok_or_else(|| throw_error("Expected a boolean literal node, but found a different type"))
+  }
+
+  #[wasm_bindgen(js_name = asNullKeyword)]
+  pub fn as_null_keyword(&self) -> Option<NullKeyword> {
+    match &self.inner {
+      JsoncCstNode::Leaf(CstLeafNode::NullKeyword(n)) => {
+        Some(NullKeyword { inner: n.clone() })
+      }
+      _ => None,
+    }
+  }
+
+  #[wasm_bindgen(js_name = asNullKeywordOrThrow)]
+  pub fn as_null_keyword_or_throw(&self) -> Result<NullKeyword, JsValue> {
+    self.as_null_keyword()
+      .ok_or_else(|| throw_error("Expected a null keyword node, but found a different type"))
+  }
+
+  #[wasm_bindgen(js_name = asWordLit)]
+  pub fn as_word_lit(&self) -> Option<WordLit> {
+    match &self.inner {
+      JsoncCstNode::Leaf(CstLeafNode::WordLit(w)) => {
+        Some(WordLit { inner: w.clone() })
+      }
+      _ => None,
+    }
+  }
+
+  #[wasm_bindgen(js_name = asWordLitOrThrow)]
+  pub fn as_word_lit_or_throw(&self) -> Result<WordLit, JsValue> {
+    self.as_word_lit()
+      .ok_or_else(|| throw_error("Expected a word literal node, but found a different type"))
+  }
+
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -697,12 +777,13 @@ impl JsonObject {
   }
 
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: &str) -> Option<Node> {
-    self
+  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&replacement)?;
+    Ok(self
       .inner
       .clone()
-      .replace_with(replacement.into())
-      .map(|n| Node { inner: n })
+      .replace_with(cst_input)
+      .map(|n| Node { inner: n }))
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -789,6 +870,69 @@ impl JsonObject {
 
 #[wasm_bindgen]
 #[derive(Clone)]
+pub struct ObjectPropName {
+  inner: cst::ObjectPropName,
+}
+
+#[wasm_bindgen]
+impl ObjectPropName {
+  #[wasm_bindgen(js_name = decodedValue)]
+  pub fn decoded_value(&self) -> Result<String, JsValue> {
+    self.inner.decoded_value()
+      .map_err(|e| throw_error(&format!("Failed to decode property name: {}", e)))
+  }
+
+  #[wasm_bindgen(js_name = parent)]
+  pub fn parent(&self) -> Option<Node> {
+    self.inner.parent().map(|p| Node {
+      inner: JsoncCstNode::Container(p),
+    })
+  }
+
+  #[wasm_bindgen(js_name = rootNode)]
+  pub fn root_node(&self) -> Option<RootNode> {
+    self.inner.root_node().map(|r| RootNode { inner: r })
+  }
+
+  #[wasm_bindgen(js_name = childIndex)]
+  pub fn child_index(&self) -> usize {
+    self.inner.child_index()
+  }
+
+  #[wasm_bindgen(js_name = ancestors)]
+  pub fn ancestors(&self) -> Vec<Node> {
+    self
+      .inner
+      .ancestors()
+      .map(|a| Node {
+        inner: JsoncCstNode::Container(a),
+      })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = previousSibling)]
+  pub fn previous_sibling(&self) -> Option<Node> {
+    self.inner.previous_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = nextSibling)]
+  pub fn next_sibling(&self) -> Option<Node> {
+    self.inner.next_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = indentText)]
+  pub fn indent_text(&self) -> Option<String> {
+    self.inner.indent_text().map(|s| s.to_string())
+  }
+
+  #[wasm_bindgen(js_name = usesTrailingCommas)]
+  pub fn uses_trailing_commas(&self) -> bool {
+    self.inner.uses_trailing_commas()
+  }
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
 pub struct ObjectProp {
   inner: cst::CstObjectProp,
 }
@@ -796,12 +940,12 @@ pub struct ObjectProp {
 #[wasm_bindgen]
 impl ObjectProp {
   #[wasm_bindgen(js_name = name)]
-  pub fn name(&self) -> Option<String> {
-    self.inner.name().and_then(|n| n.decoded_value().ok())
+  pub fn name(&self) -> Option<ObjectPropName> {
+    self.inner.name().map(|n| ObjectPropName { inner: n })
   }
 
   #[wasm_bindgen(js_name = nameOrThrow)]
-  pub fn name_or_throw(&self) -> Result<String, JsValue> {
+  pub fn name_or_throw(&self) -> Result<ObjectPropName, JsValue> {
     self.name()
       .ok_or_else(|| throw_error("Expected a property name, but found none"))
   }
@@ -871,12 +1015,13 @@ impl ObjectProp {
   }
 
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, key: &str, replacement: &str) -> Option<Node> {
-    self
+  pub fn replace_with(&self, key: &str, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&replacement)?;
+    Ok(self
       .inner
       .clone()
-      .replace_with(key, replacement.into())
-      .map(|n| Node { inner: n })
+      .replace_with(key, cst_input)
+      .map(|n| Node { inner: n }))
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -1136,5 +1281,501 @@ impl JsonArray {
   #[wasm_bindgen(js_name = childAtIndex)]
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
+  }
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct StringLit {
+  inner: cst::CstStringLit,
+}
+
+#[wasm_bindgen]
+impl StringLit {
+  #[wasm_bindgen(js_name = decodedValue)]
+  pub fn decoded_value(&self) -> Result<String, JsValue> {
+    self.inner.decoded_value()
+      .map_err(|e| throw_error(&format!("Failed to decode string: {}", e)))
+  }
+
+  #[wasm_bindgen(js_name = rawValue)]
+  pub fn raw_value(&self) -> String {
+    self.inner.raw_value().to_string()
+  }
+
+  #[wasm_bindgen(js_name = setRawValue)]
+  pub fn set_raw_value(&self, value: String) {
+    self.inner.set_raw_value(value);
+  }
+
+  #[wasm_bindgen(js_name = replaceWith)]
+  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&replacement)?;
+    Ok(self
+      .inner
+      .clone()
+      .replace_with(cst_input)
+      .map(|n| Node { inner: n }))
+  }
+
+  #[wasm_bindgen(js_name = remove)]
+  pub fn remove(self) {
+    self.inner.remove();
+  }
+
+  #[wasm_bindgen(js_name = parent)]
+  pub fn parent(&self) -> Option<Node> {
+    self.inner.parent().map(|p| Node {
+      inner: JsoncCstNode::Container(p),
+    })
+  }
+
+  #[wasm_bindgen(js_name = ancestors)]
+  pub fn ancestors(&self) -> Vec<Node> {
+    self
+      .inner
+      .ancestors()
+      .map(|a| Node {
+        inner: JsoncCstNode::Container(a),
+      })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = childIndex)]
+  pub fn child_index(&self) -> usize {
+    self.inner.child_index()
+  }
+
+  #[wasm_bindgen(js_name = previousSibling)]
+  pub fn previous_sibling(&self) -> Option<Node> {
+    self.inner.previous_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = previousSiblings)]
+  pub fn previous_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .previous_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = nextSibling)]
+  pub fn next_sibling(&self) -> Option<Node> {
+    self.inner.next_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = nextSiblings)]
+  pub fn next_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .next_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = rootNode)]
+  pub fn root_node(&self) -> Option<RootNode> {
+    self.inner.root_node().map(|r| RootNode { inner: r })
+  }
+
+  #[wasm_bindgen(js_name = indentText)]
+  pub fn indent_text(&self) -> Option<String> {
+    self.inner.indent_text().map(|s| s.to_string())
+  }
+
+  #[wasm_bindgen(js_name = usesTrailingCommas)]
+  pub fn uses_trailing_commas(&self) -> bool {
+    self.inner.uses_trailing_commas()
+  }
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct NumberLit {
+  inner: cst::CstNumberLit,
+}
+
+#[wasm_bindgen]
+impl NumberLit {
+  #[wasm_bindgen(js_name = value)]
+  pub fn value(&self) -> String {
+    self.inner.to_string()
+  }
+
+  #[wasm_bindgen(js_name = setRawValue)]
+  pub fn set_raw_value(&self, value: String) {
+    self.inner.set_raw_value(value);
+  }
+
+  #[wasm_bindgen(js_name = replaceWith)]
+  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&replacement)?;
+    Ok(self
+      .inner
+      .clone()
+      .replace_with(cst_input)
+      .map(|n| Node { inner: n }))
+  }
+
+  #[wasm_bindgen(js_name = remove)]
+  pub fn remove(self) {
+    self.inner.remove();
+  }
+
+  #[wasm_bindgen(js_name = parent)]
+  pub fn parent(&self) -> Option<Node> {
+    self.inner.parent().map(|p| Node {
+      inner: JsoncCstNode::Container(p),
+    })
+  }
+
+  #[wasm_bindgen(js_name = ancestors)]
+  pub fn ancestors(&self) -> Vec<Node> {
+    self
+      .inner
+      .ancestors()
+      .map(|a| Node {
+        inner: JsoncCstNode::Container(a),
+      })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = childIndex)]
+  pub fn child_index(&self) -> usize {
+    self.inner.child_index()
+  }
+
+  #[wasm_bindgen(js_name = previousSibling)]
+  pub fn previous_sibling(&self) -> Option<Node> {
+    self.inner.previous_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = previousSiblings)]
+  pub fn previous_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .previous_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = nextSibling)]
+  pub fn next_sibling(&self) -> Option<Node> {
+    self.inner.next_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = nextSiblings)]
+  pub fn next_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .next_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = rootNode)]
+  pub fn root_node(&self) -> Option<RootNode> {
+    self.inner.root_node().map(|r| RootNode { inner: r })
+  }
+
+  #[wasm_bindgen(js_name = indentText)]
+  pub fn indent_text(&self) -> Option<String> {
+    self.inner.indent_text().map(|s| s.to_string())
+  }
+
+  #[wasm_bindgen(js_name = usesTrailingCommas)]
+  pub fn uses_trailing_commas(&self) -> bool {
+    self.inner.uses_trailing_commas()
+  }
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct BooleanLit {
+  inner: cst::CstBooleanLit,
+}
+
+#[wasm_bindgen]
+impl BooleanLit {
+  #[wasm_bindgen(js_name = value)]
+  pub fn value(&self) -> bool {
+    self.inner.value()
+  }
+
+  #[wasm_bindgen(js_name = setValue)]
+  pub fn set_value(&self, value: bool) {
+    self.inner.set_value(value);
+  }
+
+  #[wasm_bindgen(js_name = replaceWith)]
+  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&replacement)?;
+    Ok(self
+      .inner
+      .clone()
+      .replace_with(cst_input)
+      .map(|n| Node { inner: n }))
+  }
+
+  #[wasm_bindgen(js_name = remove)]
+  pub fn remove(self) {
+    self.inner.remove();
+  }
+
+  #[wasm_bindgen(js_name = parent)]
+  pub fn parent(&self) -> Option<Node> {
+    self.inner.parent().map(|p| Node {
+      inner: JsoncCstNode::Container(p),
+    })
+  }
+
+  #[wasm_bindgen(js_name = ancestors)]
+  pub fn ancestors(&self) -> Vec<Node> {
+    self
+      .inner
+      .ancestors()
+      .map(|a| Node {
+        inner: JsoncCstNode::Container(a),
+      })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = childIndex)]
+  pub fn child_index(&self) -> usize {
+    self.inner.child_index()
+  }
+
+  #[wasm_bindgen(js_name = previousSibling)]
+  pub fn previous_sibling(&self) -> Option<Node> {
+    self.inner.previous_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = previousSiblings)]
+  pub fn previous_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .previous_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = nextSibling)]
+  pub fn next_sibling(&self) -> Option<Node> {
+    self.inner.next_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = nextSiblings)]
+  pub fn next_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .next_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = rootNode)]
+  pub fn root_node(&self) -> Option<RootNode> {
+    self.inner.root_node().map(|r| RootNode { inner: r })
+  }
+
+  #[wasm_bindgen(js_name = indentText)]
+  pub fn indent_text(&self) -> Option<String> {
+    self.inner.indent_text().map(|s| s.to_string())
+  }
+
+  #[wasm_bindgen(js_name = usesTrailingCommas)]
+  pub fn uses_trailing_commas(&self) -> bool {
+    self.inner.uses_trailing_commas()
+  }
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct NullKeyword {
+  inner: cst::CstNullKeyword,
+}
+
+#[wasm_bindgen]
+impl NullKeyword {
+  #[wasm_bindgen(js_name = replaceWith)]
+  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&replacement)?;
+    Ok(self
+      .inner
+      .clone()
+      .replace_with(cst_input)
+      .map(|n| Node { inner: n }))
+  }
+
+  #[wasm_bindgen(js_name = remove)]
+  pub fn remove(self) {
+    self.inner.remove();
+  }
+
+  #[wasm_bindgen(js_name = parent)]
+  pub fn parent(&self) -> Option<Node> {
+    self.inner.parent().map(|p| Node {
+      inner: JsoncCstNode::Container(p),
+    })
+  }
+
+  #[wasm_bindgen(js_name = ancestors)]
+  pub fn ancestors(&self) -> Vec<Node> {
+    self
+      .inner
+      .ancestors()
+      .map(|a| Node {
+        inner: JsoncCstNode::Container(a),
+      })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = childIndex)]
+  pub fn child_index(&self) -> usize {
+    self.inner.child_index()
+  }
+
+  #[wasm_bindgen(js_name = previousSibling)]
+  pub fn previous_sibling(&self) -> Option<Node> {
+    self.inner.previous_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = previousSiblings)]
+  pub fn previous_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .previous_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = nextSibling)]
+  pub fn next_sibling(&self) -> Option<Node> {
+    self.inner.next_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = nextSiblings)]
+  pub fn next_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .next_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = rootNode)]
+  pub fn root_node(&self) -> Option<RootNode> {
+    self.inner.root_node().map(|r| RootNode { inner: r })
+  }
+
+  #[wasm_bindgen(js_name = indentText)]
+  pub fn indent_text(&self) -> Option<String> {
+    self.inner.indent_text().map(|s| s.to_string())
+  }
+
+  #[wasm_bindgen(js_name = usesTrailingCommas)]
+  pub fn uses_trailing_commas(&self) -> bool {
+    self.inner.uses_trailing_commas()
+  }
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct WordLit {
+  inner: cst::CstWordLit,
+}
+
+#[wasm_bindgen]
+impl WordLit {
+  #[wasm_bindgen(js_name = value)]
+  pub fn value(&self) -> String {
+    self.inner.to_string()
+  }
+
+  #[wasm_bindgen(js_name = setRawValue)]
+  pub fn set_raw_value(&self, value: String) {
+    self.inner.set_raw_value(value);
+  }
+
+  #[wasm_bindgen(js_name = replaceWith)]
+  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&replacement)?;
+    Ok(self
+      .inner
+      .clone()
+      .replace_with(cst_input)
+      .map(|n| Node { inner: n }))
+  }
+
+  #[wasm_bindgen(js_name = remove)]
+  pub fn remove(self) {
+    self.inner.remove();
+  }
+
+  #[wasm_bindgen(js_name = parent)]
+  pub fn parent(&self) -> Option<Node> {
+    self.inner.parent().map(|p| Node {
+      inner: JsoncCstNode::Container(p),
+    })
+  }
+
+  #[wasm_bindgen(js_name = ancestors)]
+  pub fn ancestors(&self) -> Vec<Node> {
+    self
+      .inner
+      .ancestors()
+      .map(|a| Node {
+        inner: JsoncCstNode::Container(a),
+      })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = childIndex)]
+  pub fn child_index(&self) -> usize {
+    self.inner.child_index()
+  }
+
+  #[wasm_bindgen(js_name = previousSibling)]
+  pub fn previous_sibling(&self) -> Option<Node> {
+    self.inner.previous_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = previousSiblings)]
+  pub fn previous_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .previous_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = nextSibling)]
+  pub fn next_sibling(&self) -> Option<Node> {
+    self.inner.next_sibling().map(|s| Node { inner: s })
+  }
+
+  #[wasm_bindgen(js_name = nextSiblings)]
+  pub fn next_siblings(&self) -> Vec<Node> {
+    self
+      .inner
+      .next_siblings()
+      .map(|s| Node { inner: s })
+      .collect()
+  }
+
+  #[wasm_bindgen(js_name = rootNode)]
+  pub fn root_node(&self) -> Option<RootNode> {
+    self.inner.root_node().map(|r| RootNode { inner: r })
+  }
+
+  #[wasm_bindgen(js_name = indentText)]
+  pub fn indent_text(&self) -> Option<String> {
+    self.inner.indent_text().map(|s| s.to_string())
+  }
+
+  #[wasm_bindgen(js_name = usesTrailingCommas)]
+  pub fn uses_trailing_commas(&self) -> bool {
+    self.inner.uses_trailing_commas()
   }
 }
