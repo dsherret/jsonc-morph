@@ -132,11 +132,16 @@ pub struct RootNode {
 
 #[wasm_bindgen]
 impl RootNode {
+  /// Returns the root value node.
+  /// @returns The root value, or undefined if the document is empty
   #[wasm_bindgen(js_name = value)]
   pub fn value(&self) -> Option<Node> {
     self.inner.value().map(|v| Node { inner: v })
   }
 
+  /// Returns the root value node, throwing if empty.
+  /// @returns The root value
+  /// @throws If the document is empty
   #[wasm_bindgen(js_name = valueOrThrow)]
   pub fn value_or_throw(&self) -> Result<Node, JsValue> {
     self
@@ -144,11 +149,16 @@ impl RootNode {
       .ok_or_else(|| throw_error("Expected a value, but found none"))
   }
 
+  /// Returns the root value as an object if it is one.
+  /// @returns The object, or undefined if root is not an object
   #[wasm_bindgen(js_name = asObject)]
   pub fn as_object(&self) -> Option<JsonObject> {
     self.inner.object_value().map(|o| JsonObject { inner: o })
   }
 
+  /// Returns the root value as an object, throwing if it's not an object.
+  /// @returns The object
+  /// @throws If the root is not an object
   #[wasm_bindgen(js_name = asObjectOrThrow)]
   pub fn as_object_or_throw(&self) -> Result<JsonObject, JsValue> {
     self.as_object().ok_or_else(|| {
@@ -156,6 +166,9 @@ impl RootNode {
     })
   }
 
+  /// Returns the root value as an object, creating an empty object if the root is empty.
+  /// Returns undefined if the root contains a value of a different type.
+  /// @returns The object, or undefined if a non-object value exists
   #[wasm_bindgen(js_name = asObjectOrCreate)]
   pub fn as_object_or_create(&self) -> Option<JsonObject> {
     self
@@ -164,6 +177,9 @@ impl RootNode {
       .map(|o| JsonObject { inner: o })
   }
 
+  /// Returns the root value as an object, replacing any existing value with an empty object if needed.
+  /// Unlike asObjectOrCreate, this always returns an object by replacing non-object values.
+  /// @returns The object (always succeeds)
   #[wasm_bindgen(js_name = asObjectOrForce)]
   pub fn as_object_or_force(&self) -> JsonObject {
     JsonObject {
@@ -171,11 +187,16 @@ impl RootNode {
     }
   }
 
+  /// Returns the root value as an array if it is one.
+  /// @returns The array, or undefined if root is not an array
   #[wasm_bindgen(js_name = asArray)]
   pub fn as_array(&self) -> Option<JsonArray> {
     self.inner.array_value().map(|a| JsonArray { inner: a })
   }
 
+  /// Returns the root value as an array, throwing if it's not an array.
+  /// @returns The array
+  /// @throws If the root is not an array
   #[wasm_bindgen(js_name = asArrayOrThrow)]
   pub fn as_array_or_throw(&self) -> Result<JsonArray, JsValue> {
     self.as_array().ok_or_else(|| {
@@ -183,6 +204,9 @@ impl RootNode {
     })
   }
 
+  /// Returns the root value as an array, creating an empty array if the root is empty.
+  /// Returns undefined if the root contains a value of a different type.
+  /// @returns The array, or undefined if a non-array value exists
   #[wasm_bindgen(js_name = asArrayOrCreate)]
   pub fn as_array_or_create(&self) -> Option<JsonArray> {
     self
@@ -191,6 +215,9 @@ impl RootNode {
       .map(|a| JsonArray { inner: a })
   }
 
+  /// Returns the root value as an array, replacing any existing value with an empty array if needed.
+  /// Unlike asArrayOrCreate, this always returns an array by replacing non-array values.
+  /// @returns The array (always succeeds)
   #[wasm_bindgen(js_name = asArrayOrForce)]
   pub fn as_array_or_force(&self) -> JsonArray {
     JsonArray {
@@ -198,11 +225,15 @@ impl RootNode {
     }
   }
 
+  /// Converts the CST back to a string representation.
+  /// @returns The JSONC string
   #[wasm_bindgen(js_name = toString)]
   pub fn to_string_output(&self) -> String {
     self.inner.to_string()
   }
 
+  /// Returns all child nodes including whitespace and punctuation.
+  /// @returns Array of all child nodes
   #[wasm_bindgen(js_name = children)]
   pub fn children(&self) -> Vec<Node> {
     self
@@ -223,6 +254,9 @@ impl RootNode {
     Ok(())
   }
 
+  /// Configures whether trailing commas should be used throughout the document.
+  /// When enabled, trailing commas are added for multiline formatting in objects and arrays.
+  /// @param enabled - Whether to enable trailing commas
   #[wasm_bindgen(js_name = setTrailingCommas)]
   pub fn set_trailing_commas(&self, enabled: bool) {
     use jsonc_parser::cst::TrailingCommaMode;
@@ -234,16 +268,21 @@ impl RootNode {
     self.inner.set_trailing_commas(mode);
   }
 
+  /// Clears all children from the root node, leaving an empty document.
   #[wasm_bindgen(js_name = clearChildren)]
   pub fn clear_children(&self) {
     self.inner.clear_children();
   }
 
+  /// Returns the indentation string used for a single level.
+  /// @returns The single-level indentation string (e.g., "  " or "\t")
   #[wasm_bindgen(js_name = singleIndentText)]
   pub fn single_indent_text(&self) -> Option<String> {
     self.inner.single_indent_text()
   }
 
+  /// Returns the newline kind used in the document.
+  /// @returns Either "\n" or "\r\n"
   #[wasm_bindgen(js_name = newlineKind)]
   pub fn newline_kind(&self) -> JsString {
     match self.inner.newline_kind() {
@@ -252,6 +291,8 @@ impl RootNode {
     }
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -259,11 +300,15 @@ impl RootNode {
     })
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -275,11 +320,15 @@ impl RootNode {
       .collect()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -289,11 +338,15 @@ impl RootNode {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -303,16 +356,22 @@ impl RootNode {
       .collect()
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
   }
 
+  /// Returns child nodes excluding whitespace, comments, and punctuation.
+  /// @returns Array of significant child nodes
   #[wasm_bindgen(js_name = childrenExcludeTriviaAndTokens)]
   pub fn children_exclude_trivia_and_tokens(&self) -> Vec<Node> {
     self
@@ -323,6 +382,9 @@ impl RootNode {
       .collect()
   }
 
+  /// Returns the child node at the specified index.
+  /// @param index - The child index
+  /// @returns The child node, or undefined if index is out of bounds
   #[wasm_bindgen(js_name = childAtIndex)]
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
@@ -339,16 +401,22 @@ pub struct Node {
 
 #[wasm_bindgen]
 impl Node {
+  /// Returns true if this node is a container (object, array, or property).
+  /// @returns true if this is a container node
   #[wasm_bindgen(js_name = isContainer)]
   pub fn is_container(&self) -> bool {
     matches!(self.inner, JsoncCstNode::Container(_))
   }
 
+  /// Returns true if this node is a leaf value (string, number, boolean, null).
+  /// @returns true if this is a leaf node
   #[wasm_bindgen(js_name = isLeaf)]
   pub fn is_leaf(&self) -> bool {
     matches!(self.inner, JsoncCstNode::Leaf(_))
   }
 
+  /// Converts this node to an object if it is one.
+  /// @returns The object, or undefined if this node is not an object
   #[wasm_bindgen(js_name = asObject)]
   pub fn as_object(&self) -> Option<JsonObject> {
     match &self.inner {
@@ -359,6 +427,9 @@ impl Node {
     }
   }
 
+  /// Converts this node to an object, throwing if it's not an object.
+  /// @returns The object
+  /// @throws If this node is not an object
   #[wasm_bindgen(js_name = asObjectOrThrow)]
   pub fn as_object_or_throw(&self) -> Result<JsonObject, JsValue> {
     match &self.inner {
@@ -371,6 +442,8 @@ impl Node {
     }
   }
 
+  /// Converts this node to an array if it is one.
+  /// @returns The array, or undefined if this node is not an array
   #[wasm_bindgen(js_name = asArray)]
   pub fn as_array(&self) -> Option<JsonArray> {
     match &self.inner {
@@ -381,6 +454,9 @@ impl Node {
     }
   }
 
+  /// Converts this node to an array, throwing if it's not an array.
+  /// @returns The array
+  /// @throws If this node is not an array
   #[wasm_bindgen(js_name = asArrayOrThrow)]
   pub fn as_array_or_throw(&self) -> Result<JsonArray, JsValue> {
     match &self.inner {
@@ -393,11 +469,16 @@ impl Node {
     }
   }
 
+  /// Converts this node to the root node if it is one.
+  /// @returns The root node, or undefined if this is not a root node
   #[wasm_bindgen(js_name = asRootNode)]
   pub fn as_root_node(&self) -> Option<RootNode> {
     self.inner.as_root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Converts this node to the root node, throwing if it's not a root node.
+  /// @returns The root node
+  /// @throws If this node is not a root node
   #[wasm_bindgen(js_name = asRootNodeOrThrow)]
   pub fn as_root_node_or_throw(&self) -> Result<RootNode, JsValue> {
     self.as_root_node().ok_or_else(|| {
@@ -405,6 +486,8 @@ impl Node {
     })
   }
 
+  /// Returns the decoded string value if this node is a string literal.
+  /// @returns The string value, or undefined if this node is not a string
   #[wasm_bindgen(js_name = asString)]
   pub fn as_string(&self) -> Option<String> {
     match &self.inner {
@@ -413,6 +496,9 @@ impl Node {
     }
   }
 
+  /// Returns the decoded string value, throwing if not a string.
+  /// @returns The string value
+  /// @throws If this node is not a string
   #[wasm_bindgen(js_name = asStringOrThrow)]
   pub fn as_string_or_throw(&self) -> Result<String, JsValue> {
     match &self.inner {
@@ -425,6 +511,9 @@ impl Node {
     }
   }
 
+  /// Returns the raw string representation of a number literal.
+  /// Returns a string to preserve the exact formatting (e.g., "1.0" vs "1", "1e10" vs "10000000000").
+  /// @returns The number as a string, or undefined if this node is not a number
   #[wasm_bindgen(js_name = numberValue)]
   pub fn number_value(&self) -> Option<String> {
     match &self.inner {
@@ -433,6 +522,10 @@ impl Node {
     }
   }
 
+  /// Returns the raw string representation of a number literal, throwing if not a number.
+  /// Returns a string to preserve the exact formatting (e.g., "1.0" vs "1", "1e10" vs "10000000000").
+  /// @returns The number as a string
+  /// @throws If this node is not a number
   #[wasm_bindgen(js_name = numberValueOrThrow)]
   pub fn number_value_or_throw(&self) -> Result<String, JsValue> {
     match &self.inner {
@@ -443,6 +536,8 @@ impl Node {
     }
   }
 
+  /// Returns the boolean value if this node is a boolean literal.
+  /// @returns The boolean value, or undefined if this node is not a boolean
   #[wasm_bindgen(js_name = asBoolean)]
   pub fn as_boolean(&self) -> Option<bool> {
     match &self.inner {
@@ -451,6 +546,9 @@ impl Node {
     }
   }
 
+  /// Returns the boolean value, throwing if not a boolean.
+  /// @returns The boolean value
+  /// @throws If this node is not a boolean
   #[wasm_bindgen(js_name = asBooleanOrThrow)]
   pub fn as_boolean_or_throw(&self) -> Result<bool, JsValue> {
     match &self.inner {
@@ -461,26 +559,36 @@ impl Node {
     }
   }
 
+  /// Returns true if this node is a null keyword.
+  /// @returns true if this node represents null
   #[wasm_bindgen(js_name = isNull)]
   pub fn is_null(&self) -> bool {
     matches!(self.inner, JsoncCstNode::Leaf(CstLeafNode::NullKeyword(_)))
   }
 
+  /// Returns true if this node is a string literal.
+  /// @returns true if this node is a string
   #[wasm_bindgen(js_name = isString)]
   pub fn is_string(&self) -> bool {
     matches!(self.inner, JsoncCstNode::Leaf(CstLeafNode::StringLit(_)))
   }
 
+  /// Returns true if this node is a number literal.
+  /// @returns true if this node is a number
   #[wasm_bindgen(js_name = isNumber)]
   pub fn is_number(&self) -> bool {
     matches!(self.inner, JsoncCstNode::Leaf(CstLeafNode::NumberLit(_)))
   }
 
+  /// Returns true if this node is a boolean literal.
+  /// @returns true if this node is a boolean
   #[wasm_bindgen(js_name = isBoolean)]
   pub fn is_boolean(&self) -> bool {
     matches!(self.inner, JsoncCstNode::Leaf(CstLeafNode::BooleanLit(_)))
   }
 
+  /// Returns this node as a StringLit if it is one.
+  /// @returns The StringLit, or undefined if this node is not a string literal
   #[wasm_bindgen(js_name = asStringLit)]
   pub fn as_string_lit(&self) -> Option<StringLit> {
     match &self.inner {
@@ -491,6 +599,9 @@ impl Node {
     }
   }
 
+  /// Returns this node as a StringLit, throwing if it's not a string literal.
+  /// @returns The StringLit
+  /// @throws If this node is not a string literal
   #[wasm_bindgen(js_name = asStringLitOrThrow)]
   pub fn as_string_lit_or_throw(&self) -> Result<StringLit, JsValue> {
     self.as_string_lit().ok_or_else(|| {
@@ -498,6 +609,8 @@ impl Node {
     })
   }
 
+  /// Returns this node as a NumberLit if it is one.
+  /// @returns The NumberLit, or undefined if this node is not a number literal
   #[wasm_bindgen(js_name = asNumberLit)]
   pub fn as_number_lit(&self) -> Option<NumberLit> {
     match &self.inner {
@@ -508,6 +621,9 @@ impl Node {
     }
   }
 
+  /// Returns this node as a NumberLit, throwing if it's not a number literal.
+  /// @returns The NumberLit
+  /// @throws If this node is not a number literal
   #[wasm_bindgen(js_name = asNumberLitOrThrow)]
   pub fn as_number_lit_or_throw(&self) -> Result<NumberLit, JsValue> {
     self.as_number_lit().ok_or_else(|| {
@@ -515,6 +631,8 @@ impl Node {
     })
   }
 
+  /// Returns this node as a BooleanLit if it is one.
+  /// @returns The BooleanLit, or undefined if this node is not a boolean literal
   #[wasm_bindgen(js_name = asBooleanLit)]
   pub fn as_boolean_lit(&self) -> Option<BooleanLit> {
     match &self.inner {
@@ -525,6 +643,9 @@ impl Node {
     }
   }
 
+  /// Returns this node as a BooleanLit, throwing if it's not a boolean literal.
+  /// @returns The BooleanLit
+  /// @throws If this node is not a boolean literal
   #[wasm_bindgen(js_name = asBooleanLitOrThrow)]
   pub fn as_boolean_lit_or_throw(&self) -> Result<BooleanLit, JsValue> {
     self.as_boolean_lit().ok_or_else(|| {
@@ -532,6 +653,8 @@ impl Node {
     })
   }
 
+  /// Returns this node as a NullKeyword if it is one.
+  /// @returns The NullKeyword, or undefined if this node is not a null keyword
   #[wasm_bindgen(js_name = asNullKeyword)]
   pub fn as_null_keyword(&self) -> Option<NullKeyword> {
     match &self.inner {
@@ -542,6 +665,9 @@ impl Node {
     }
   }
 
+  /// Returns this node as a NullKeyword, throwing if it's not a null keyword.
+  /// @returns The NullKeyword
+  /// @throws If this node is not a null keyword
   #[wasm_bindgen(js_name = asNullKeywordOrThrow)]
   pub fn as_null_keyword_or_throw(&self) -> Result<NullKeyword, JsValue> {
     self.as_null_keyword().ok_or_else(|| {
@@ -549,6 +675,8 @@ impl Node {
     })
   }
 
+  /// Returns this node as a WordLit if it is one.
+  /// @returns The WordLit, or undefined if this node is not a word literal
   #[wasm_bindgen(js_name = asWordLit)]
   pub fn as_word_lit(&self) -> Option<WordLit> {
     match &self.inner {
@@ -559,6 +687,9 @@ impl Node {
     }
   }
 
+  /// Returns this node as a WordLit, throwing if it's not a word literal.
+  /// @returns The WordLit
+  /// @throws If this node is not a word literal
   #[wasm_bindgen(js_name = asWordLitOrThrow)]
   pub fn as_word_lit_or_throw(&self) -> Result<WordLit, JsValue> {
     self.as_word_lit().ok_or_else(|| {
@@ -566,6 +697,8 @@ impl Node {
     })
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -573,6 +706,9 @@ impl Node {
     })
   }
 
+  /// Returns the parent node, throwing if this is the root.
+  /// @returns The parent node
+  /// @throws If this node has no parent
   #[wasm_bindgen(js_name = parentOrThrow)]
   pub fn parent_or_throw(&self) -> Result<Node, JsValue> {
     self
@@ -580,11 +716,15 @@ impl Node {
       .ok_or_else(|| throw_error("Expected a parent node, but found none"))
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -596,11 +736,15 @@ impl Node {
       .collect()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -610,11 +754,15 @@ impl Node {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -624,11 +772,16 @@ impl Node {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the root node, throwing if detached.
+  /// @returns The root node
+  /// @throws If this node is detached from the CST
   #[wasm_bindgen(js_name = rootNodeOrThrow)]
   pub fn root_node_or_throw(&self) -> Result<RootNode, JsValue> {
     self
@@ -636,56 +789,78 @@ impl Node {
       .ok_or_else(|| throw_error("Expected a root node, but found none"))
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
   }
 
+  /// Returns true if this node is trivia (whitespace or comments).
+  /// @returns true if this node is trivia
   #[wasm_bindgen(js_name = isTrivia)]
   pub fn is_trivia(&self) -> bool {
     self.inner.is_trivia()
   }
 
+  /// Returns true if this node is a newline character.
+  /// @returns true if this node is a newline
   #[wasm_bindgen(js_name = isNewline)]
   pub fn is_newline(&self) -> bool {
     self.inner.is_newline()
   }
 
+  /// Returns true if this node is a comma token.
+  /// @returns true if this node is a comma
   #[wasm_bindgen(js_name = isComma)]
   pub fn is_comma(&self) -> bool {
     self.inner.is_comma()
   }
 
+  /// Returns true if this node is a comment.
+  /// @returns true if this node is a comment
   #[wasm_bindgen(js_name = isComment)]
   pub fn is_comment(&self) -> bool {
     self.inner.is_comment()
   }
 
+  /// Returns true if this node is a punctuation token (bracket, brace, colon, comma).
+  /// @returns true if this node is a token
   #[wasm_bindgen(js_name = isToken)]
   pub fn is_token(&self) -> bool {
     self.inner.is_token()
   }
 
+  /// Returns true if this node is whitespace.
+  /// @returns true if this node is whitespace
   #[wasm_bindgen(js_name = isWhitespace)]
   pub fn is_whitespace(&self) -> bool {
     self.inner.is_whitespace()
   }
 
+  /// Returns the character if this node is a single-character token.
+  /// @returns The token character, or undefined if not a token
   #[wasm_bindgen(js_name = tokenChar)]
   pub fn token_char(&self) -> Option<String> {
     self.inner.token_char().map(|c| c.to_string())
   }
 
+  /// Returns the element index if this node is an array element.
+  /// @returns The element index, or undefined if not an array element
   #[wasm_bindgen(js_name = elementIndex)]
   pub fn element_index(&self) -> Option<usize> {
     self.inner.element_index()
   }
 
+  /// Returns all child nodes including whitespace and punctuation.
+  /// @returns Array of all child nodes
   #[wasm_bindgen(js_name = children)]
   pub fn children(&self) -> Vec<Node> {
     self
@@ -696,6 +871,8 @@ impl Node {
       .collect()
   }
 
+  /// Returns child nodes excluding whitespace, comments, and punctuation.
+  /// @returns Array of significant child nodes
   #[wasm_bindgen(js_name = childrenExcludeTriviaAndTokens)]
   pub fn children_exclude_trivia_and_tokens(&self) -> Vec<Node> {
     self
@@ -706,6 +883,9 @@ impl Node {
       .collect()
   }
 
+  /// Returns the child node at the specified index.
+  /// @param index - The child index
+  /// @returns The child node, or undefined if index is out of bounds
   #[wasm_bindgen(js_name = childAtIndex)]
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
@@ -722,6 +902,8 @@ pub struct JsonObject {
 
 #[wasm_bindgen]
 impl JsonObject {
+  /// Returns all properties in the object.
+  /// @returns Array of object properties
   #[wasm_bindgen(js_name = properties)]
   pub fn properties(&self) -> Vec<ObjectProp> {
     self
@@ -732,11 +914,18 @@ impl JsonObject {
       .collect()
   }
 
+  /// Gets a property by name.
+  /// @param key - The property name to look up
+  /// @returns The property, or undefined if not found
   #[wasm_bindgen(js_name = get)]
   pub fn get(&self, key: &str) -> Option<ObjectProp> {
     self.inner.get(key).map(|p| ObjectProp { inner: p })
   }
 
+  /// Gets a property by name, throwing if not found.
+  /// @param key - The property name to look up
+  /// @returns The property
+  /// @throws If the property is not found
   #[wasm_bindgen(js_name = getOrThrow)]
   pub fn get_or_throw(&self, key: &str) -> Result<ObjectProp, JsValue> {
     self.get(key).ok_or_else(|| {
@@ -747,6 +936,9 @@ impl JsonObject {
     })
   }
 
+  /// Gets a property value if it's an object.
+  /// @param name - The property name to look up
+  /// @returns The object value, or undefined if property doesn't exist or is not an object
   #[wasm_bindgen(js_name = getIfObject)]
   pub fn get_if_object(&self, name: &str) -> Option<JsonObject> {
     self
@@ -755,6 +947,10 @@ impl JsonObject {
       .map(|o| JsonObject { inner: o })
   }
 
+  /// Gets a property value as an object, throwing if not found or wrong type.
+  /// @param name - The property name to look up
+  /// @returns The object value
+  /// @throws If the property doesn't exist or is not an object
   #[wasm_bindgen(js_name = getIfObjectOrThrow)]
   pub fn get_if_object_or_throw(
     &self,
@@ -764,6 +960,10 @@ impl JsonObject {
       .ok_or_else(|| throw_error(&format!("Expected property '{}' to have an object value, but it was not found or has a different type", name)))
   }
 
+  /// Gets a property value as an object, creating an empty object if the property doesn't exist.
+  /// Returns undefined if the property exists but has a non-object value.
+  /// @param name - The property name to get
+  /// @returns The object value, or undefined if property has a non-object value
   #[wasm_bindgen(js_name = getIfObjectOrCreate)]
   pub fn get_if_object_or_create(&self, name: &str) -> Option<JsonObject> {
     self
@@ -772,6 +972,10 @@ impl JsonObject {
       .map(|o| JsonObject { inner: o })
   }
 
+  /// Gets a property value as an object, creating or replacing the value with an empty object if needed.
+  /// Unlike getIfObjectOrCreate, this always returns an object by replacing non-object values.
+  /// @param name - The property name to get
+  /// @returns The object value (always succeeds)
   #[wasm_bindgen(js_name = getIfObjectOrForce)]
   pub fn get_if_object_or_force(&self, name: &str) -> JsonObject {
     JsonObject {
@@ -779,11 +983,18 @@ impl JsonObject {
     }
   }
 
+  /// Gets a property value if it's an array.
+  /// @param name - The property name to look up
+  /// @returns The array value, or undefined if property doesn't exist or is not an array
   #[wasm_bindgen(js_name = getIfArray)]
   pub fn get_if_array(&self, name: &str) -> Option<JsonArray> {
     self.inner.array_value(name).map(|a| JsonArray { inner: a })
   }
 
+  /// Gets a property value as an array, throwing if not found or wrong type.
+  /// @param name - The property name to look up
+  /// @returns The array value
+  /// @throws If the property doesn't exist or is not an array
   #[wasm_bindgen(js_name = getIfArrayOrThrow)]
   pub fn get_if_array_or_throw(
     &self,
@@ -793,6 +1004,10 @@ impl JsonObject {
       .ok_or_else(|| throw_error(&format!("Expected property '{}' to have an array value, but it was not found or has a different type", name)))
   }
 
+  /// Gets a property value as an array, creating an empty array if the property doesn't exist.
+  /// Returns undefined if the property exists but has a non-array value.
+  /// @param name - The property name to get
+  /// @returns The array value, or undefined if property has a non-array value
   #[wasm_bindgen(js_name = getIfArrayOrCreate)]
   pub fn get_if_array_or_create(&self, name: &str) -> Option<JsonArray> {
     self
@@ -801,6 +1016,10 @@ impl JsonObject {
       .map(|a| JsonArray { inner: a })
   }
 
+  /// Gets a property value as an array, creating or replacing the value with an empty array if needed.
+  /// Unlike getIfArrayOrCreate, this always returns an array by replacing non-array values.
+  /// @param name - The property name to get
+  /// @returns The array value (always succeeds)
   #[wasm_bindgen(js_name = getIfArrayOrForce)]
   pub fn get_if_array_or_force(&self, name: &str) -> JsonArray {
     JsonArray {
@@ -808,11 +1027,15 @@ impl JsonObject {
     }
   }
 
+  /// Removes this object from its parent.
+  /// After calling this method, the object is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Returns all child nodes including whitespace and punctuation.
+  /// @returns Array of all child nodes
   #[wasm_bindgen(js_name = children)]
   pub fn children(&self) -> Vec<Node> {
     self
@@ -855,6 +1078,9 @@ impl JsonObject {
     Ok(ObjectProp { inner: prop })
   }
 
+  /// Configures whether trailing commas should be used in this object.
+  /// When enabled, trailing commas are added for multiline formatting.
+  /// @param enabled - Whether to enable trailing commas
   #[wasm_bindgen(js_name = setTrailingCommas)]
   pub fn set_trailing_commas(&self, enabled: bool) {
     use jsonc_parser::cst::TrailingCommaMode;
@@ -866,6 +1092,7 @@ impl JsonObject {
     self.inner.set_trailing_commas(mode);
   }
 
+  /// Ensures the object is formatted with each property on its own line.
   #[wasm_bindgen(js_name = ensureMultiline)]
   pub fn ensure_multiline(&self) {
     self.inner.ensure_multiline();
@@ -889,6 +1116,8 @@ impl JsonObject {
     )
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -896,6 +1125,8 @@ impl JsonObject {
     })
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -907,16 +1138,22 @@ impl JsonObject {
       .collect()
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -926,11 +1163,15 @@ impl JsonObject {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -940,21 +1181,29 @@ impl JsonObject {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
   }
 
+  /// Returns child nodes excluding whitespace, comments, and punctuation.
+  /// @returns Array of significant child nodes
   #[wasm_bindgen(js_name = childrenExcludeTriviaAndTokens)]
   pub fn children_exclude_trivia_and_tokens(&self) -> Vec<Node> {
     self
@@ -965,12 +1214,17 @@ impl JsonObject {
       .collect()
   }
 
+  /// Returns the child node at the specified index.
+  /// @param index - The child index
+  /// @returns The child node, or undefined if index is out of bounds
   #[wasm_bindgen(js_name = childAtIndex)]
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
   }
 }
 
+/// Represents the name part of an object property in the CST.
+/// Can be either a quoted string or an unquoted word literal (when allowLooseObjectPropertyNames is enabled).
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct ObjectPropName {
@@ -979,6 +1233,8 @@ pub struct ObjectPropName {
 
 #[wasm_bindgen]
 impl ObjectPropName {
+  /// Returns the decoded property name (unquoted and unescaped).
+  /// @returns The decoded property name
   #[wasm_bindgen(js_name = decodedValue)]
   pub fn decoded_value(&self) -> Result<String, JsValue> {
     self.inner.decoded_value().map_err(|e| {
@@ -986,6 +1242,8 @@ impl ObjectPropName {
     })
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -993,16 +1251,22 @@ impl ObjectPropName {
     })
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1014,27 +1278,37 @@ impl ObjectPropName {
       .collect()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
   }
 }
 
+/// Represents an object property (key-value pair) in the CST.
+/// Provides methods for accessing and manipulating both the property name and its value.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct ObjectProp {
@@ -1043,11 +1317,16 @@ pub struct ObjectProp {
 
 #[wasm_bindgen]
 impl ObjectProp {
+  /// Returns the property name.
+  /// @returns The property name, or undefined if malformed
   #[wasm_bindgen(js_name = name)]
   pub fn name(&self) -> Option<ObjectPropName> {
     self.inner.name().map(|n| ObjectPropName { inner: n })
   }
 
+  /// Returns the property name, throwing if malformed.
+  /// @returns The property name
+  /// @throws If the property name is malformed
   #[wasm_bindgen(js_name = nameOrThrow)]
   pub fn name_or_throw(&self) -> Result<ObjectPropName, JsValue> {
     self
@@ -1055,11 +1334,16 @@ impl ObjectProp {
       .ok_or_else(|| throw_error("Expected a property name, but found none"))
   }
 
+  /// Returns the property value.
+  /// @returns The property value, or undefined if malformed
   #[wasm_bindgen(js_name = value)]
   pub fn value(&self) -> Option<Node> {
     self.inner.value().map(|v| Node { inner: v })
   }
 
+  /// Returns the property value, throwing if malformed.
+  /// @returns The property value
+  /// @throws If the property value is malformed
   #[wasm_bindgen(js_name = valueOrThrow)]
   pub fn value_or_throw(&self) -> Result<Node, JsValue> {
     self
@@ -1067,17 +1351,25 @@ impl ObjectProp {
       .ok_or_else(|| throw_error("Expected a property value, but found none"))
   }
 
+  /// Returns the property value if it's an object.
+  /// @returns The object value, or undefined if not an object
   #[wasm_bindgen(js_name = valueIfObject)]
   pub fn value_if_object(&self) -> Option<JsonObject> {
     self.inner.object_value().map(|o| JsonObject { inner: o })
   }
 
+  /// Returns the property value as an object, throwing if not an object.
+  /// @returns The object value
+  /// @throws If the property value is not an object
   #[wasm_bindgen(js_name = valueIfObjectOrThrow)]
   pub fn value_if_object_or_throw(&self) -> Result<JsonObject, JsValue> {
     self.value_if_object()
       .ok_or_else(|| throw_error("Expected property to have an object value, but it has a different type"))
   }
 
+  /// Gets the property value as an object, replacing the value with an empty object if needed.
+  /// Always returns an object by replacing non-object values.
+  /// @returns The object value (always succeeds)
   #[wasm_bindgen(js_name = valueIfObjectOrForce)]
   pub fn value_if_object_or_force(&self) -> JsonObject {
     JsonObject {
@@ -1085,11 +1377,16 @@ impl ObjectProp {
     }
   }
 
+  /// Returns the property value if it's an array.
+  /// @returns The array value, or undefined if not an array
   #[wasm_bindgen(js_name = valueIfArray)]
   pub fn value_if_array(&self) -> Option<JsonArray> {
     self.inner.array_value().map(|a| JsonArray { inner: a })
   }
 
+  /// Returns the property value as an array, throwing if not an array.
+  /// @returns The array value
+  /// @throws If the property value is not an array
   #[wasm_bindgen(js_name = valueIfArrayOrThrow)]
   pub fn value_if_array_or_throw(&self) -> Result<JsonArray, JsValue> {
     self.value_if_array().ok_or_else(|| {
@@ -1099,6 +1396,9 @@ impl ObjectProp {
     })
   }
 
+  /// Gets the property value as an array, replacing the value with an empty array if needed.
+  /// Always returns an array by replacing non-array values.
+  /// @returns The array value (always succeeds)
   #[wasm_bindgen(js_name = valueIfArrayOrForce)]
   pub fn value_if_array_or_force(&self) -> JsonArray {
     JsonArray {
@@ -1106,16 +1406,22 @@ impl ObjectProp {
     }
   }
 
+  /// Removes this property from its parent object.
+  /// After calling this method, the property is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Returns the index of this property within its parent object.
+  /// @returns The property index
   #[wasm_bindgen(js_name = propertyIndex)]
   pub fn property_index(&self) -> usize {
     self.inner.property_index()
   }
 
+  /// Sets the value of this property.
+  /// @param value - The new value to set
   #[wasm_bindgen(js_name = setValue)]
   pub fn set_value(&self, value: JsValue) -> Result<(), JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
@@ -1144,6 +1450,8 @@ impl ObjectProp {
     )
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -1151,6 +1459,8 @@ impl ObjectProp {
     })
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1162,16 +1472,22 @@ impl ObjectProp {
       .collect()
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -1181,11 +1497,15 @@ impl ObjectProp {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -1195,6 +1515,8 @@ impl ObjectProp {
       .collect()
   }
 
+  /// Returns the previous property in the same object.
+  /// @returns The previous property, or undefined if this is the first property
   #[wasm_bindgen(js_name = previousProperty)]
   pub fn previous_property(&self) -> Option<ObjectProp> {
     self
@@ -1203,26 +1525,36 @@ impl ObjectProp {
       .map(|p| ObjectProp { inner: p })
   }
 
+  /// Returns the next property in the same object.
+  /// @returns The next property, or undefined if this is the last property
   #[wasm_bindgen(js_name = nextProperty)]
   pub fn next_property(&self) -> Option<ObjectProp> {
     self.inner.next_property().map(|p| ObjectProp { inner: p })
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
   }
 
+  /// Returns all child nodes including whitespace and punctuation.
+  /// @returns Array of all child nodes
   #[wasm_bindgen(js_name = children)]
   pub fn children(&self) -> Vec<Node> {
     self
@@ -1233,6 +1565,8 @@ impl ObjectProp {
       .collect()
   }
 
+  /// Returns child nodes excluding whitespace, comments, and punctuation.
+  /// @returns Array of significant child nodes
   #[wasm_bindgen(js_name = childrenExcludeTriviaAndTokens)]
   pub fn children_exclude_trivia_and_tokens(&self) -> Vec<Node> {
     self
@@ -1243,6 +1577,9 @@ impl ObjectProp {
       .collect()
   }
 
+  /// Returns the child node at the specified index.
+  /// @param index - The child index
+  /// @returns The child node, or undefined if index is out of bounds
   #[wasm_bindgen(js_name = childAtIndex)]
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
@@ -1272,6 +1609,7 @@ impl JsonArray {
   }
 
   /// Removes this array from its parent.
+  /// After calling this method, the array is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
@@ -1316,6 +1654,9 @@ impl JsonArray {
     Ok(Node { inner: node })
   }
 
+  /// Configures whether trailing commas should be used in this array.
+  /// When enabled, trailing commas are added for multiline formatting.
+  /// @param enabled - Whether to enable trailing commas
   #[wasm_bindgen(js_name = setTrailingCommas)]
   pub fn set_trailing_commas(&self, enabled: bool) {
     use jsonc_parser::cst::TrailingCommaMode;
@@ -1342,6 +1683,8 @@ impl JsonArray {
     )
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -1349,11 +1692,15 @@ impl JsonArray {
     })
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1365,11 +1712,15 @@ impl JsonArray {
       .collect()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -1379,11 +1730,15 @@ impl JsonArray {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -1393,21 +1748,29 @@ impl JsonArray {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
   }
 
+  /// Returns child nodes excluding whitespace, comments, and punctuation.
+  /// @returns Array of significant child nodes
   #[wasm_bindgen(js_name = childrenExcludeTriviaAndTokens)]
   pub fn children_exclude_trivia_and_tokens(&self) -> Vec<Node> {
     self
@@ -1418,6 +1781,9 @@ impl JsonArray {
       .collect()
   }
 
+  /// Returns the child node at the specified index.
+  /// @param index - The child index
+  /// @returns The child node, or undefined if index is out of bounds
   #[wasm_bindgen(js_name = childAtIndex)]
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
@@ -1476,11 +1842,15 @@ impl StringLit {
     )
   }
 
+  /// Removes this string literal from its parent.
+  /// After calling this method, the node is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -1488,6 +1858,8 @@ impl StringLit {
     })
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1499,16 +1871,22 @@ impl StringLit {
       .collect()
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -1518,11 +1896,15 @@ impl StringLit {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -1532,16 +1914,22 @@ impl StringLit {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
@@ -1558,16 +1946,25 @@ pub struct NumberLit {
 
 #[wasm_bindgen]
 impl NumberLit {
+  /// Returns the raw string representation of the number.
+  /// Returns a string to preserve the exact formatting (e.g., "1.0" vs "1", "1e10" vs "10000000000").
+  /// @returns The number as a string
   #[wasm_bindgen(js_name = value)]
   pub fn value(&self) -> String {
     self.inner.to_string()
   }
 
+  /// Sets the raw number value.
+  /// The value should be a valid JSON number string (e.g., "42", "3.14", "1e10").
+  /// @param value - The raw number string to set
   #[wasm_bindgen(js_name = setRawValue)]
   pub fn set_raw_value(&self, value: String) {
     self.inner.set_raw_value(value);
   }
 
+  /// Replaces this number literal with a new value.
+  /// @param replacement - The new value to replace this number with
+  /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(
     &self,
@@ -1583,11 +1980,15 @@ impl NumberLit {
     )
   }
 
+  /// Removes this node from its parent.
+  /// After calling this method, the node is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -1595,6 +1996,8 @@ impl NumberLit {
     })
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1606,16 +2009,22 @@ impl NumberLit {
       .collect()
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -1625,11 +2034,15 @@ impl NumberLit {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -1639,16 +2052,22 @@ impl NumberLit {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
@@ -1665,16 +2084,23 @@ pub struct BooleanLit {
 
 #[wasm_bindgen]
 impl BooleanLit {
+  /// Returns the boolean value (true or false).
+  /// @returns The boolean value
   #[wasm_bindgen(js_name = value)]
   pub fn value(&self) -> bool {
     self.inner.value()
   }
 
+  /// Sets the boolean value.
+  /// @param value - The new boolean value (true or false)
   #[wasm_bindgen(js_name = setValue)]
   pub fn set_value(&self, value: bool) {
     self.inner.set_value(value);
   }
 
+  /// Replaces this boolean literal with a new value.
+  /// @param replacement - The new value to replace this boolean with
+  /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(
     &self,
@@ -1690,11 +2116,15 @@ impl BooleanLit {
     )
   }
 
+  /// Removes this node from its parent.
+  /// After calling this method, the node is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -1702,6 +2132,8 @@ impl BooleanLit {
     })
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1713,16 +2145,22 @@ impl BooleanLit {
       .collect()
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -1732,11 +2170,15 @@ impl BooleanLit {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -1746,16 +2188,22 @@ impl BooleanLit {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
@@ -1771,6 +2219,9 @@ pub struct NullKeyword {
 
 #[wasm_bindgen]
 impl NullKeyword {
+  /// Replaces this null keyword with a new value.
+  /// @param replacement - The new value to replace this null with
+  /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(
     &self,
@@ -1786,11 +2237,15 @@ impl NullKeyword {
     )
   }
 
+  /// Removes this node from its parent.
+  /// After calling this method, the node is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -1798,6 +2253,8 @@ impl NullKeyword {
     })
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1809,16 +2266,22 @@ impl NullKeyword {
       .collect()
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -1828,11 +2291,15 @@ impl NullKeyword {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -1842,16 +2309,22 @@ impl NullKeyword {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
@@ -1868,16 +2341,24 @@ pub struct WordLit {
 
 #[wasm_bindgen]
 impl WordLit {
+  /// Returns the unquoted word value.
+  /// @returns The word literal as a string
   #[wasm_bindgen(js_name = value)]
   pub fn value(&self) -> String {
     self.inner.to_string()
   }
 
+  /// Sets the raw word value.
+  /// The value should be a valid unquoted identifier (alphanumeric and underscores).
+  /// @param value - The raw word string to set
   #[wasm_bindgen(js_name = setRawValue)]
   pub fn set_raw_value(&self, value: String) {
     self.inner.set_raw_value(value);
   }
 
+  /// Replaces this word literal with a new value.
+  /// @param replacement - The new value to replace this word with
+  /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(
     &self,
@@ -1893,11 +2374,15 @@ impl WordLit {
     )
   }
 
+  /// Removes this node from its parent.
+  /// After calling this method, the node is detached from the CST and can no longer be used.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Returns the parent node in the CST.
+  /// @returns The parent node, or undefined if this is the root
   #[wasm_bindgen(js_name = parent)]
   pub fn parent(&self) -> Option<Node> {
     self.inner.parent().map(|p| Node {
@@ -1905,6 +2390,8 @@ impl WordLit {
     })
   }
 
+  /// Returns all ancestor nodes from parent to root.
+  /// @returns Array of ancestor nodes
   #[wasm_bindgen(js_name = ancestors)]
   pub fn ancestors(&self) -> Vec<Node> {
     self
@@ -1916,16 +2403,22 @@ impl WordLit {
       .collect()
   }
 
+  /// Returns the index of this node within its parent's children.
+  /// @returns The child index
   #[wasm_bindgen(js_name = childIndex)]
   pub fn child_index(&self) -> usize {
     self.inner.child_index()
   }
 
+  /// Returns the previous sibling node.
+  /// @returns The previous sibling, or undefined if this is the first child
   #[wasm_bindgen(js_name = previousSibling)]
   pub fn previous_sibling(&self) -> Option<Node> {
     self.inner.previous_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all previous sibling nodes.
+  /// @returns Array of previous siblings
   #[wasm_bindgen(js_name = previousSiblings)]
   pub fn previous_siblings(&self) -> Vec<Node> {
     self
@@ -1935,11 +2428,15 @@ impl WordLit {
       .collect()
   }
 
+  /// Returns the next sibling node.
+  /// @returns The next sibling, or undefined if this is the last child
   #[wasm_bindgen(js_name = nextSibling)]
   pub fn next_sibling(&self) -> Option<Node> {
     self.inner.next_sibling().map(|s| Node { inner: s })
   }
 
+  /// Returns all next sibling nodes.
+  /// @returns Array of next siblings
   #[wasm_bindgen(js_name = nextSiblings)]
   pub fn next_siblings(&self) -> Vec<Node> {
     self
@@ -1949,16 +2446,22 @@ impl WordLit {
       .collect()
   }
 
+  /// Returns the root node of the document.
+  /// @returns The root node, or undefined if detached
   #[wasm_bindgen(js_name = rootNode)]
   pub fn root_node(&self) -> Option<RootNode> {
     self.inner.root_node().map(|r| RootNode { inner: r })
   }
 
+  /// Returns the indentation string used at this node's depth.
+  /// @returns The indentation string, or undefined if not applicable
   #[wasm_bindgen(js_name = indentText)]
   pub fn indent_text(&self) -> Option<String> {
     self.inner.indent_text().map(|s| s.to_string())
   }
 
+  /// Returns whether this node's container uses trailing commas.
+  /// @returns true if trailing commas are used
   #[wasm_bindgen(js_name = usesTrailingCommas)]
   pub fn uses_trailing_commas(&self) -> bool {
     self.inner.uses_trailing_commas()
