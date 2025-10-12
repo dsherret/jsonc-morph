@@ -5,8 +5,8 @@
 
 Programmatically edit JSONC in JavaScript.
 
-This is especially useful for config files that you need to make programmatic
-changes to. It's not recommended for very large files as this is using
+This is especially useful for making programmatic changes to JSON config files.
+It's not recommended for very large files as this is using
 [jsonc-parser](https://github.com/dprint/jsonc-parser/) via Wasm under the hood.
 
 ## Install
@@ -29,21 +29,27 @@ npm install jsonc-morph
 import { parse } from "@david/jsonc-morph";
 
 const root = parse(`{
-  // comment
-  "data": 123
-}`);
-let rootObj = root.asObjectOrThrow();
+  // 1
+  "data" /* 2 */: 123 // 3
+} // 4`);
+
+// get the root object
+const rootObj = root.asObjectOrThrow();
+
+// set its "data" property to have a new value
 rootObj.getOrThrow("data").setValue({
   "nested": true,
 });
+
+// append a new key
 rootObj.append("new_key", [456, 789, false]);
-const output = root.toString();
-// {
-//   // comment
-//   "data": {
-//     "nested": true
-//   },
-//   "new_key": [456, 789, false]
-// }
-console.log(output);
+
+// inspect the output
+assertEquals(root.toString(), `{
+  // 1
+  "data" /* 2 */: {
+    "nested": true
+  }, // 3
+  "new_key": [456, 789, false]
+} // 4`);
 ```
