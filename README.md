@@ -14,7 +14,7 @@ It's not recommended for very large files as this is using
 Deno:
 
 ```
-deno add @jsr:@david/jsonc-morph
+deno add jsr:@david/jsonc-morph
 ```
 
 Or with npm:
