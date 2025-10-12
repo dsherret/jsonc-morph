@@ -806,6 +806,9 @@ impl JsonObject {
     self.inner.ensure_multiline();
   }
 
+  /// Replaces this object with a new value.
+  /// @param replacement - The new value to replace this object with
+  /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
@@ -1044,6 +1047,11 @@ impl ObjectProp {
     Ok(())
   }
 
+  /// Replaces this property with a new property.
+  /// This allows changing both the property name and its value.
+  /// @param key - The new property name
+  /// @param replacement - The new value for the property
+  /// @returns The new node that replaced this property, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(&self, key: &str, replacement: JsValue) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
@@ -1237,6 +1245,9 @@ impl JsonArray {
     self.inner.set_trailing_commas(mode);
   }
 
+  /// Replaces this array with a new value.
+  /// @param value - The new value to replace this array with
+  /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(&self, value: JsValue) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
@@ -1361,6 +1372,9 @@ impl StringLit {
     self.inner.set_raw_value(value);
   }
 
+  /// Replaces this string literal with a new value.
+  /// @param replacement - The new value to replace this string with
+  /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;

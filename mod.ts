@@ -2,6 +2,7 @@ export {
   BooleanLit,
   JsonArray,
   JsonObject,
+  type JsonValue,
   Node,
   NullKeyword,
   NumberLit,
