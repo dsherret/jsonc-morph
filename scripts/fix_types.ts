@@ -16,12 +16,12 @@ const replacements: Array<[RegExp, string]> = [
 
   // JsonObject methods
   [
-    /append\(prop_name: string, value: any\)/g,
-    "append(prop_name: string, value: JsonValue)",
+    /append\(key: string, value: any\)/g,
+    "append(key: string, value: JsonValue)",
   ],
   [
-    /insert\(index: number, prop_name: string, value: any\)/g,
-    "insert(index: number, prop_name: string, value: JsonValue)",
+    /insert\(index: number, key: string, value: any\)/g,
+    "insert(index: number, key: string, value: JsonValue)",
   ],
 
   // JsonArray methods
