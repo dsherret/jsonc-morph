@@ -16,6 +16,18 @@ extern "C" {
   pub type JsoncParseOptionsObject;
 }
 
+#[wasm_bindgen]
+pub fn parse(text: &str, options: Option<JsoncParseOptionsObject>) -> Result<RootNode, JsValue> {
+  let parse_options = match options {
+    Some(opts) => parse_options_from_js(&opts.into()),
+    None => ParseOptions::default(),
+  };
+
+  let root = cst::CstRootNode::parse(text, &parse_options)
+    .map_err(|e| throw_error(&format!("Parse error: {}", e.kind())))?;
+  Ok(RootNode { inner: root })
+}
+
 fn parse_options_from_js(obj: &JsValue) -> ParseOptions {
   let mut options = ParseOptions::default();
 
@@ -90,18 +102,6 @@ pub struct RootNode {
 
 #[wasm_bindgen]
 impl RootNode {
-  #[wasm_bindgen(js_name = parse)]
-  pub fn parse(text: &str, options: Option<JsoncParseOptionsObject>) -> Result<RootNode, JsValue> {
-    let parse_options = match options {
-      Some(opts) => parse_options_from_js(&opts.into()),
-      None => ParseOptions::default(),
-    };
-
-    let root = cst::CstRootNode::parse(text, &parse_options)
-      .map_err(|e| throw_error(&format!("Parse error: {}", e.kind())))?;
-    Ok(RootNode { inner: root })
-  }
-
   #[wasm_bindgen(js_name = value)]
   pub fn value(&self) -> Option<Node> {
     self.inner.value().map(|v| Node { inner: v })
@@ -113,47 +113,47 @@ impl RootNode {
       .ok_or_else(|| throw_error("Expected a value, but found none"))
   }
 
-  #[wasm_bindgen(js_name = objectValue)]
-  pub fn object_value(&self) -> Option<JsonObject> {
+  #[wasm_bindgen(js_name = asObject)]
+  pub fn as_object(&self) -> Option<JsonObject> {
     self.inner.object_value().map(|o| JsonObject { inner: o })
   }
 
-  #[wasm_bindgen(js_name = objectValueOrThrow)]
-  pub fn object_value_or_throw(&self) -> Result<JsonObject, JsValue> {
-    self.object_value()
+  #[wasm_bindgen(js_name = asObjectOrThrow)]
+  pub fn as_object_or_throw(&self) -> Result<JsonObject, JsValue> {
+    self.as_object()
       .ok_or_else(|| throw_error("Expected an object value, but found a different type"))
   }
 
-  #[wasm_bindgen(js_name = objectValueOrCreate)]
-  pub fn object_value_or_create(&self) -> Option<JsonObject> {
+  #[wasm_bindgen(js_name = asObjectValueOrCreate)]
+  pub fn as_object_or_create(&self) -> Option<JsonObject> {
     self.inner.object_value_or_create().map(|o| JsonObject { inner: o })
   }
 
-  #[wasm_bindgen(js_name = objectValueOrSet)]
-  pub fn object_value_or_set(&self) -> JsonObject {
+  #[wasm_bindgen(js_name = asObjectValueOrForce)]
+  pub fn as_object_or_force(&self) -> JsonObject {
     JsonObject {
       inner: self.inner.object_value_or_set(),
     }
   }
 
-  #[wasm_bindgen(js_name = arrayValue)]
-  pub fn array_value(&self) -> Option<JsonArray> {
+  #[wasm_bindgen(js_name = asArray)]
+  pub fn as_array(&self) -> Option<JsonArray> {
     self.inner.array_value().map(|a| JsonArray { inner: a })
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrThrow)]
-  pub fn array_value_or_throw(&self) -> Result<JsonArray, JsValue> {
-    self.array_value()
+  #[wasm_bindgen(js_name = asArrayOrThrow)]
+  pub fn as_array_or_throw(&self) -> Result<JsonArray, JsValue> {
+    self.as_array()
       .ok_or_else(|| throw_error("Expected an array value, but found a different type"))
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrCreate)]
-  pub fn array_value_or_create(&self) -> Option<JsonArray> {
+  #[wasm_bindgen(js_name = asArrayOrCreate)]
+  pub fn as_array_or_create(&self) -> Option<JsonArray> {
     self.inner.array_value_or_create().map(|a| JsonArray { inner: a })
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrSet)]
-  pub fn array_value_or_set(&self) -> JsonArray {
+  #[wasm_bindgen(js_name = asArrayOrForce)]
+  pub fn as_array_or_force(&self) -> JsonArray {
     JsonArray {
       inner: self.inner.array_value_or_set(),
     }
@@ -596,56 +596,56 @@ impl JsonObject {
       .ok_or_else(|| throw_error(&format!("Expected property '{}', but it was not found", key)))
   }
 
-  #[wasm_bindgen(js_name = objectValue)]
-  pub fn object_value(&self, name: &str) -> Option<JsonObject> {
+  #[wasm_bindgen(js_name = getIfObject)]
+  pub fn get_if_object(&self, name: &str) -> Option<JsonObject> {
     self
       .inner
       .object_value(name)
       .map(|o| JsonObject { inner: o })
   }
 
-  #[wasm_bindgen(js_name = objectValueOrThrow)]
-  pub fn object_value_or_throw(&self, name: &str) -> Result<JsonObject, JsValue> {
-    self.object_value(name)
+  #[wasm_bindgen(js_name = getIfObjectOrThrow)]
+  pub fn get_if_object_or_throw(&self, name: &str) -> Result<JsonObject, JsValue> {
+    self.get_if_object(name)
       .ok_or_else(|| throw_error(&format!("Expected property '{}' to have an object value, but it was not found or has a different type", name)))
   }
 
-  #[wasm_bindgen(js_name = objectValueOrCreate)]
-  pub fn object_value_or_create(&self, name: &str) -> Option<JsonObject> {
+  #[wasm_bindgen(js_name = getIfObjectOrCreate)]
+  pub fn get_if_object_or_create(&self, name: &str) -> Option<JsonObject> {
     self
       .inner
       .object_value_or_create(name)
       .map(|o| JsonObject { inner: o })
   }
 
-  #[wasm_bindgen(js_name = objectValueOrSet)]
-  pub fn object_value_or_set(&self, name: &str) -> JsonObject {
+  #[wasm_bindgen(js_name = getIfObjectOrForce)]
+  pub fn get_if_object_or_force(&self, name: &str) -> JsonObject {
     JsonObject {
       inner: self.inner.object_value_or_set(name),
     }
   }
 
-  #[wasm_bindgen(js_name = arrayValue)]
-  pub fn array_value(&self, name: &str) -> Option<JsonArray> {
+  #[wasm_bindgen(js_name = getIfArray)]
+  pub fn get_if_array(&self, name: &str) -> Option<JsonArray> {
     self.inner.array_value(name).map(|a| JsonArray { inner: a })
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrThrow)]
-  pub fn array_value_or_throw(&self, name: &str) -> Result<JsonArray, JsValue> {
-    self.array_value(name)
+  #[wasm_bindgen(js_name = getIfArrayOrThrow)]
+  pub fn get_if_array_or_throw(&self, name: &str) -> Result<JsonArray, JsValue> {
+    self.get_if_array(name)
       .ok_or_else(|| throw_error(&format!("Expected property '{}' to have an array value, but it was not found or has a different type", name)))
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrCreate)]
-  pub fn array_value_or_create(&self, name: &str) -> Option<JsonArray> {
+  #[wasm_bindgen(js_name = getIfArrayOrCreate)]
+  pub fn get_if_array_or_create(&self, name: &str) -> Option<JsonArray> {
     self
       .inner
       .array_value_or_create(name)
       .map(|a| JsonArray { inner: a })
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrSet)]
-  pub fn array_value_or_set(&self, name: &str) -> JsonArray {
+  #[wasm_bindgen(js_name = getIfArrayOrForce)]
+  pub fn get_if_array_or_force(&self, name: &str) -> JsonArray {
     JsonArray {
       inner: self.inner.array_value_or_set(name),
     }
@@ -817,37 +817,37 @@ impl ObjectProp {
       .ok_or_else(|| throw_error("Expected a property value, but found none"))
   }
 
-  #[wasm_bindgen(js_name = objectValue)]
-  pub fn object_value(&self) -> Option<JsonObject> {
+  #[wasm_bindgen(js_name = valueIfObject)]
+  pub fn value_if_object(&self) -> Option<JsonObject> {
     self.inner.object_value().map(|o| JsonObject { inner: o })
   }
 
-  #[wasm_bindgen(js_name = objectValueOrThrow)]
-  pub fn object_value_or_throw(&self) -> Result<JsonObject, JsValue> {
-    self.object_value()
+  #[wasm_bindgen(js_name = valueIfObjectOrThrow)]
+  pub fn value_if_object_or_throw(&self) -> Result<JsonObject, JsValue> {
+    self.value_if_object()
       .ok_or_else(|| throw_error("Expected property to have an object value, but it has a different type"))
   }
 
-  #[wasm_bindgen(js_name = objectValueOrSet)]
-  pub fn object_value_or_set(&self) -> JsonObject {
+  #[wasm_bindgen(js_name = valueIfObjectOrForce)]
+  pub fn value_if_object_or_force(&self) -> JsonObject {
     JsonObject {
       inner: self.inner.object_value_or_set(),
     }
   }
 
-  #[wasm_bindgen(js_name = arrayValue)]
-  pub fn array_value(&self) -> Option<JsonArray> {
+  #[wasm_bindgen(js_name = valueIfArray)]
+  pub fn value_if_array(&self) -> Option<JsonArray> {
     self.inner.array_value().map(|a| JsonArray { inner: a })
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrThrow)]
-  pub fn array_value_or_throw(&self) -> Result<JsonArray, JsValue> {
-    self.array_value()
+  #[wasm_bindgen(js_name = valueIfArrayOrThrow)]
+  pub fn value_if_array_or_throw(&self) -> Result<JsonArray, JsValue> {
+    self.value_if_array()
       .ok_or_else(|| throw_error("Expected property to have an array value, but it has a different type"))
   }
 
-  #[wasm_bindgen(js_name = arrayValueOrSet)]
-  pub fn array_value_or_set(&self) -> JsonArray {
+  #[wasm_bindgen(js_name = valueIfArrayOrForce)]
+  pub fn value_if_array_or_force(&self) -> JsonArray {
     JsonArray {
       inner: self.inner.array_value_or_set(),
     }
@@ -1048,12 +1048,13 @@ impl JsonArray {
   }
 
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: &str) -> Option<Node> {
-    self
+  pub fn replace_with(&self, value: JsValue) -> Result<Option<Node>, JsValue> {
+    let cst_input = js_value_to_cst_input(&value)?;
+    Ok(self
       .inner
       .clone()
-      .replace_with(replacement.into())
-      .map(|n| Node { inner: n })
+      .replace_with(cst_input)
+      .map(|n| Node { inner: n }))
   }
 
   #[wasm_bindgen(js_name = parent)]

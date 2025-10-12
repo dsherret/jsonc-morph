@@ -1,12 +1,12 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { RootNode } from "./mod.ts";
+import { parse } from "./mod.ts";
 
 Deno.test("RootNode - parse simple object", () => {
   const text = '{"name": "test", "value": 42}';
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   assertExists(root);
-  const obj = root.objectValue();
+  const obj = root.asObject();
   assertExists(obj);
 });
 
@@ -19,10 +19,10 @@ Deno.test("RootNode - parse with comments", () => {
     "value": 42
   }`;
 
-  const root = RootNode.parse(text);
+  const root = parse(text);
   assertExists(root);
 
-  const obj = root.objectValue();
+  const obj = root.asObject();
   assertExists(obj);
 });
 
@@ -32,10 +32,10 @@ Deno.test("RootNode - parse with trailing commas", () => {
     "name": "test",
   }`;
 
-  const root = RootNode.parse(text);
+  const root = parse(text);
   assertExists(root);
 
-  const obj = root.objectValue();
+  const obj = root.asObject();
   assertExists(obj);
 });
 
@@ -45,7 +45,7 @@ Deno.test("RootNode - parse with options", () => {
     "value": 123,
   }`;
 
-  const root = RootNode.parse(text, {
+  const root = parse(text, {
     allowComments: true,
     allowTrailingCommas: true,
   });
@@ -54,7 +54,7 @@ Deno.test("RootNode - parse with options", () => {
 
 Deno.test("RootNode - toString roundtrip", () => {
   const text = '{"name": "test", "value": 42}';
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   const output = root.toString();
   assertEquals(output, text);
@@ -62,8 +62,8 @@ Deno.test("RootNode - toString roundtrip", () => {
 
 Deno.test("JsonObject - get properties", () => {
   const text = '{"name": "test", "value": 42, "active": true}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -76,8 +76,8 @@ Deno.test("JsonObject - get properties", () => {
 
 Deno.test("JsonObject - get property by key", () => {
   const text = '{"name": "test", "value": 42}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -91,12 +91,12 @@ Deno.test("JsonObject - get property by key", () => {
 
 Deno.test("JsonObject - nested object access", () => {
   const text = '{"config": {"debug": true, "level": "info"}}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
-  const configObj = obj.objectValue("config");
+  const configObj = obj.getIfObject("config");
   assertExists(configObj);
 
   const debugProp = configObj.get("debug");
@@ -106,12 +106,12 @@ Deno.test("JsonObject - nested object access", () => {
 
 Deno.test("JsonObject - nested array access", () => {
   const text = '{"items": [1, 2, 3]}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
-  const itemsJsonArray = obj.arrayValue("items");
+  const itemsJsonArray = obj.getIfArray("items");
   assertExists(itemsJsonArray);
 
   const elements = itemsJsonArray.elements();
@@ -120,9 +120,9 @@ Deno.test("JsonObject - nested array access", () => {
 
 Deno.test("JsonArray - parse array root", () => {
   const text = '[1, 2, 3, "four", true, null]';
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
-  const arr = root.arrayValue();
+  const arr = root.asArray();
   assertExists(arr);
 
   const elements = arr.elements();
@@ -131,9 +131,9 @@ Deno.test("JsonArray - parse array root", () => {
 
 Deno.test("JsonArray - nested arrays", () => {
   const text = "[[1, 2], [3, 4], [5, 6]]";
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
-  const arr = root.arrayValue();
+  const arr = root.asArray();
   assertExists(arr);
 
   const elements = arr.elements();
@@ -146,8 +146,8 @@ Deno.test("JsonArray - nested arrays", () => {
 
 Deno.test("Node - type checking for string", () => {
   const text = '{"name": "test"}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -170,8 +170,8 @@ Deno.test("Node - type checking for string", () => {
 
 Deno.test("Node - type checking for number", () => {
   const text = '{"count": 42}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -189,8 +189,8 @@ Deno.test("Node - type checking for number", () => {
 
 Deno.test("Node - type checking for boolean", () => {
   const text = '{"active": true}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -211,8 +211,8 @@ Deno.test("Node - type checking for boolean", () => {
 
 Deno.test("Node - type checking for null", () => {
   const text = '{"data": null}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -230,8 +230,8 @@ Deno.test("Node - type checking for null", () => {
 
 Deno.test("Node - type checking for object", () => {
   const text = '{"config": {"debug": true}}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -250,8 +250,8 @@ Deno.test("Node - type checking for object", () => {
 
 Deno.test("Node - type checking for array", () => {
   const text = '{"items": [1, 2, 3]}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -271,8 +271,8 @@ Deno.test("Node - type checking for array", () => {
 
 Deno.test("JsonObjectProp - propertyIndex", () => {
   const text = '{"first": 1, "second": 2, "third": 3}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -286,15 +286,15 @@ Deno.test("JsonObjectProp - propertyIndex", () => {
 
 Deno.test("JsonObjectProp - nested object value", () => {
   const text = '{"user": {"name": "John", "age": 30}}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
   const userProp = obj.get("user");
   assertExists(userProp);
 
-  const userObj = userProp.objectValue();
+  const userObj = userProp.valueIfObject();
   assertExists(userObj);
 
   const nameProp = userObj.get("name");
@@ -307,15 +307,15 @@ Deno.test("JsonObjectProp - nested object value", () => {
 
 Deno.test("JsonObjectProp - nested array value", () => {
   const text = '{"scores": [95, 87, 92]}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
   const scoresProp = obj.get("scores");
   assertExists(scoresProp);
 
-  const scoresArr = scoresProp.arrayValue();
+  const scoresArr = scoresProp.valueIfArray();
   assertExists(scoresArr);
   assertEquals(scoresArr.elements().length, 3);
 });
@@ -338,8 +338,8 @@ Deno.test("Complex nested structure", () => {
     ]
   }`;
 
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -349,7 +349,7 @@ Deno.test("Complex nested structure", () => {
   assertEquals(nameProp.value()?.asString(), "MyApp");
 
   // Check nested config object
-  const configObj = obj.objectValue("config");
+  const configObj = obj.getIfObject("config");
   assertExists(configObj);
 
   const debugProp = configObj.get("debug");
@@ -357,12 +357,12 @@ Deno.test("Complex nested structure", () => {
   assertEquals(debugProp.value()?.asBoolean(), true);
 
   // Check features array
-  const featuresArr = configObj.arrayValue("features");
+  const featuresArr = configObj.getIfArray("features");
   assertExists(featuresArr);
   assertEquals(featuresArr.elements().length, 3);
 
   // Check nested database object
-  const dbObj = configObj.objectValue("database");
+  const dbObj = configObj.getIfObject("database");
   assertExists(dbObj);
 
   const hostProp = dbObj.get("host");
@@ -370,7 +370,7 @@ Deno.test("Complex nested structure", () => {
   assertEquals(hostProp.value()?.asString(), "localhost");
 
   // Check dependencies array with objects
-  const depsArr = obj.arrayValue("dependencies");
+  const depsArr = obj.getIfArray("dependencies");
   assertExists(depsArr);
   assertEquals(depsArr.elements().length, 2);
 
@@ -386,7 +386,7 @@ Deno.test("Parse error handling", () => {
   const invalidText = '{"unclosed": "string}';
 
   try {
-    RootNode.parse(invalidText);
+    parse(invalidText);
     throw new Error("Should have thrown parse error");
   } catch (error) {
     assertExists(error);
@@ -395,7 +395,7 @@ Deno.test("Parse error handling", () => {
 
 Deno.test("Children access - root", () => {
   const text = '{"a": 1, "b": 2}';
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   const children = root.children();
   assertExists(children);
@@ -404,8 +404,8 @@ Deno.test("Children access - root", () => {
 
 Deno.test("Children access - object", () => {
   const text = '{"a": 1, "b": 2}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -416,8 +416,8 @@ Deno.test("Children access - object", () => {
 
 Deno.test("Children access - array", () => {
   const text = "[1, 2, 3]";
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
 
@@ -428,7 +428,7 @@ Deno.test("Children access - array", () => {
 
 Deno.test("Value method - root node", () => {
   const text = '{"key": "value"}';
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   const value = root.value();
   assertExists(value);
@@ -440,8 +440,8 @@ Deno.test("Value method - root node", () => {
 
 Deno.test("Empty object", () => {
   const text = "{}";
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -451,8 +451,8 @@ Deno.test("Empty object", () => {
 
 Deno.test("Empty array", () => {
   const text = "[]";
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
 
@@ -462,8 +462,8 @@ Deno.test("Empty array", () => {
 
 Deno.test("Mixed types in array", () => {
   const text = '[1, "two", true, null, {"key": "value"}, [1, 2]]';
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
 
@@ -482,8 +482,8 @@ Deno.test("Mixed types in array", () => {
 
 Deno.test("Special characters in strings", () => {
   const text = '{"message": "Hello\\nWorld\\t!\\r\\n\\"quoted\\""}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -501,8 +501,8 @@ Deno.test("Special characters in strings", () => {
 
 Deno.test("Unicode in strings", () => {
   const text = '{"emoji": "👍", "chinese": "你好"}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
 
@@ -515,46 +515,46 @@ Deno.test("Unicode in strings", () => {
   assertEquals(chineseProp.value()?.asString(), "你好");
 });
 
-Deno.test("RootNode - objectValueOrSet creates empty object", () => {
+Deno.test("RootNode - objectValueOrForce creates empty object", () => {
   const text = "null";
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
-  const obj = root.objectValueOrSet();
+  const obj = root.asObjectValueOrForce();
   assertExists(obj);
 
   const output = root.toString();
   assertEquals(output, "{}");
 });
 
-Deno.test("RootNode - arrayValueOrSet creates empty array", () => {
+Deno.test("RootNode - arrayValueOrForce creates empty array", () => {
   const text = "null";
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
-  const arr = root.arrayValueOrSet();
+  const arr = root.asArrayOrForce();
   assertExists(arr);
 
   const output = root.toString();
   assertEquals(output, "[]");
 });
 
-Deno.test("JsonObject - objectValueOrSet creates nested object", () => {
+Deno.test("JsonObject - objectValueOrForce creates nested object", () => {
   const text = "{}";
-  const root = RootNode.parse(text);
-  const obj = root.objectValueOrSet();
+  const root = parse(text);
+  const obj = root.asObjectValueOrForce();
 
-  const configObj = obj.objectValueOrSet("config");
+  const configObj = obj.getIfObjectOrForce("config");
   assertExists(configObj);
 
   const output = root.toString();
   assertEquals(output.includes("config"), true);
 });
 
-Deno.test("JsonObject - arrayValueOrSet creates nested array", () => {
+Deno.test("JsonObject - arrayValueOrForce creates nested array", () => {
   const text = "{}";
-  const root = RootNode.parse(text);
-  const obj = root.objectValueOrSet();
+  const root = parse(text);
+  const obj = root.asObjectValueOrForce();
 
-  const itemsArr = obj.arrayValueOrSet("items");
+  const itemsArr = obj.getIfArrayOrForce("items");
   assertExists(itemsArr);
 
   const output = root.toString();
@@ -563,8 +563,8 @@ Deno.test("JsonObject - arrayValueOrSet creates nested array", () => {
 
 Deno.test("JsonArray - ensureMultiline formats array", () => {
   const text = "[1, 2, 3]";
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
   arr.ensureMultiline();
@@ -573,16 +573,16 @@ Deno.test("JsonArray - ensureMultiline formats array", () => {
   assertEquals(output.includes("\n"), true);
 });
 
-Deno.test("JsonObjectProp - objectValueOrSet on property", () => {
+Deno.test("JsonObjectProp - objectValueOrForce on property", () => {
   const text = '{"user": null}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
   const userProp = obj.get("user");
   assertExists(userProp);
 
-  const userObj = userProp.objectValueOrSet();
+  const userObj = userProp.valueIfObjectOrForce();
   assertExists(userObj);
 
   const output = root.toString();
@@ -590,16 +590,16 @@ Deno.test("JsonObjectProp - objectValueOrSet on property", () => {
   assertEquals(output.includes("{}"), true);
 });
 
-Deno.test("JsonObjectProp - arrayValueOrSet on property", () => {
+Deno.test("JsonObjectProp - arrayValueOrForce on property", () => {
   const text = '{"scores": null}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
   const scoresProp = obj.get("scores");
   assertExists(scoresProp);
 
-  const scoresArr = scoresProp.arrayValueOrSet();
+  const scoresArr = scoresProp.valueIfArrayOrForce();
   assertExists(scoresArr);
 
   const output = root.toString();
@@ -610,8 +610,8 @@ Deno.test("JsonObjectProp - arrayValueOrSet on property", () => {
 // New manipulation methods tests
 Deno.test("JsonArray - append adds element to array", () => {
   const text = "[1, 2]";
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
   arr.append("3");
@@ -624,8 +624,8 @@ Deno.test("JsonArray - append adds element to array", () => {
 
 Deno.test("JsonArray - insert adds element at index", () => {
   const text = "[1, 3]";
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
   arr.insert(1, "2");
@@ -641,8 +641,8 @@ Deno.test("JsonArray - setTrailingCommas adds trailing commas", () => {
   1,
   2
 ]`;
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
   arr.setTrailingCommas(true);
@@ -653,8 +653,8 @@ Deno.test("JsonArray - setTrailingCommas adds trailing commas", () => {
 
 Deno.test("JsonObject - append adds property", () => {
   const text = '{"a": 1}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
   obj.append("b", "2");
@@ -666,8 +666,8 @@ Deno.test("JsonObject - append adds property", () => {
 
 Deno.test("JsonObject - insert adds property at index", () => {
   const text = '{"a": 1, "c": 3}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
   obj.insert(1, "b", "2");
@@ -679,8 +679,8 @@ Deno.test("JsonObject - insert adds property at index", () => {
 
 Deno.test("JsonObjectProp - setValue changes property value", () => {
   const text = '{"name": "old"}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
   const nameProp = obj.get("name");
@@ -694,8 +694,8 @@ Deno.test("JsonObjectProp - setValue changes property value", () => {
 
 Deno.test("JsonObjectProp - previousProperty navigates to previous", () => {
   const text = '{"a": 1, "b": 2, "c": 3}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
   const bProp = obj.get("b");
@@ -708,8 +708,8 @@ Deno.test("JsonObjectProp - previousProperty navigates to previous", () => {
 
 Deno.test("JsonObjectProp - nextProperty navigates to next", () => {
   const text = '{"a": 1, "b": 2, "c": 3}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
   const bProp = obj.get("b");
@@ -722,11 +722,11 @@ Deno.test("JsonObjectProp - nextProperty navigates to next", () => {
 
 Deno.test("Node - parent returns parent node", () => {
   const text = '{"items": [1, 2, 3]}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
-  const itemsArr = obj.arrayValue("items");
+  const itemsArr = obj.getIfArray("items");
   assertExists(itemsArr);
 
   const parent = itemsArr.parent();
@@ -736,8 +736,8 @@ Deno.test("Node - parent returns parent node", () => {
 
 Deno.test("Node - childIndex returns position", () => {
   const text = "[1, 2, 3]";
-  const root = RootNode.parse(text);
-  const arr = root.arrayValue();
+  const root = parse(text);
+  const arr = root.asArray();
 
   assertExists(arr);
   const elements = arr.elements();
@@ -747,13 +747,13 @@ Deno.test("Node - childIndex returns position", () => {
 
 Deno.test("Node - rootNode navigates to root", () => {
   const text = '{"a": {"b": {"c": 1}}}';
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
 
   assertExists(obj);
-  const aObj = obj.objectValue("a");
+  const aObj = obj.getIfObject("a");
   assertExists(aObj);
-  const bObj = aObj.objectValue("b");
+  const bObj = aObj.getIfObject("b");
   assertExists(bObj);
   const cProp = bObj.get("c");
   assertExists(cProp);
@@ -767,8 +767,8 @@ Deno.test("Node - isTrivia identifies trivia nodes", () => {
     // comment
     "a": 1
   }`;
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
   assertExists(obj);
   const children = obj.children();
 
@@ -781,8 +781,8 @@ Deno.test("Node - isComment identifies comment nodes", () => {
     // comment
     "a": 1
   }`;
-  const root = RootNode.parse(text);
-  const obj = root.objectValue();
+  const root = parse(text);
+  const obj = root.asObject();
   assertExists(obj);
   const children = obj.children();
 
@@ -792,7 +792,7 @@ Deno.test("Node - isComment identifies comment nodes", () => {
 
 Deno.test("RootNode - setValue changes root value", () => {
   const text = "null";
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   root.setValue('{"new": "value"}');
 
@@ -802,7 +802,7 @@ Deno.test("RootNode - setValue changes root value", () => {
 
 Deno.test("RootNode - clearChildren removes all children", () => {
   const text = '{"a": 1, "b": 2}';
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   root.clearChildren();
 
@@ -815,7 +815,7 @@ Deno.test("RootNode - singleIndentText detects indentation", () => {
   "a": 1,
   "b": 2
 }`;
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   const indent = root.singleIndentText();
   assertExists(indent);
@@ -826,7 +826,7 @@ Deno.test("RootNode - newlineKind detects newline type", () => {
   const text = `{
   "a": 1
 }`;
-  const root = RootNode.parse(text);
+  const root = parse(text);
 
   const newlineKind = root.newlineKind();
   assertExists(newlineKind);
@@ -834,14 +834,14 @@ Deno.test("RootNode - newlineKind detects newline type", () => {
 
 // Value conversion tests
 Deno.test("setValue - accepts object values", () => {
-  const root = RootNode.parse("null");
-  const obj = root.objectValueOrSet();
+  const root = parse("null");
+  const obj = root.asObjectValueOrForce();
 
   obj.append("data", { nested: true, value: 123 });
 
   // Check actual node values instead of string includes
   const dataProp = obj.getOrThrow("data");
-  const dataObj = dataProp.objectValueOrThrow();
+  const dataObj = dataProp.valueIfObjectOrThrow();
   const nestedProp = dataObj.getOrThrow("nested");
   assertEquals(nestedProp.valueOrThrow().asBooleanOrThrow(), true);
   const valueProp = dataObj.getOrThrow("value");
@@ -849,14 +849,14 @@ Deno.test("setValue - accepts object values", () => {
 });
 
 Deno.test("setValue - accepts array values", () => {
-  const root = RootNode.parse("{}");
-  const obj = root.objectValueOrSet();
+  const root = parse("{}");
+  const obj = root.asObjectValueOrForce();
 
   obj.append("items", [456, 789, false]);
 
   // Check actual node values instead of string includes
   const itemsProp = obj.getOrThrow("items");
-  const itemsArr = itemsProp.arrayValueOrThrow();
+  const itemsArr = itemsProp.valueIfArrayOrThrow();
   const elements = itemsArr.elements();
   assertEquals(elements.length, 3);
   assertEquals(elements[0].numberValueOrThrow(), "456");
@@ -865,8 +865,8 @@ Deno.test("setValue - accepts array values", () => {
 });
 
 Deno.test("setValue - accepts primitives (string, number, boolean, null)", () => {
-  const root = RootNode.parse("{}");
-  const obj = root.objectValueOrSet();
+  const root = parse("{}");
+  const obj = root.asObjectValueOrForce();
 
   obj.append("str", "hello");
   obj.append("num", 42);
@@ -881,8 +881,8 @@ Deno.test("setValue - accepts primitives (string, number, boolean, null)", () =>
 });
 
 Deno.test("JsonObjectProp.setValue - accepts complex objects", () => {
-  const root = RootNode.parse('{"data": null}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"data": null}');
+  const obj = root.asObjectOrThrow();
   const dataProp = obj.getOrThrow("data");
 
   dataProp.setValue({
@@ -895,14 +895,14 @@ Deno.test("JsonObjectProp.setValue - accepts complex objects", () => {
   });
 
   // Check actual node values instead of string includes
-  const dataObj = dataProp.objectValueOrThrow();
-  const nestedObj = dataObj.objectValueOrThrow("nested");
-  const deeplyObj = nestedObj.objectValueOrThrow("deeply");
+  const dataObj = dataProp.valueIfObjectOrThrow();
+  const nestedObj = dataObj.getIfObjectOrThrow("nested");
+  const deeplyObj = nestedObj.getIfObjectOrThrow("deeply");
   assertEquals(
     deeplyObj.getOrThrow("value").valueOrThrow().asStringOrThrow(),
     "test",
   );
-  const arrayProp = dataObj.arrayValueOrThrow("array");
+  const arrayProp = dataObj.getIfArrayOrThrow("array");
   const elements = arrayProp.elements();
   assertEquals(elements.length, 3);
   assertEquals(elements[0].numberValueOrThrow(), "1");
@@ -911,8 +911,8 @@ Deno.test("JsonObjectProp.setValue - accepts complex objects", () => {
 });
 
 Deno.test("JsonArray.append - accepts mixed types", () => {
-  const root = RootNode.parse("[]");
-  const arr = root.arrayValueOrSet();
+  const root = parse("[]");
+  const arr = root.asArrayOrForce();
 
   arr.append("string");
   arr.append(123);
@@ -950,8 +950,8 @@ Deno.test("JsonArray.append - accepts mixed types", () => {
 
 // OrThrow methods tests
 Deno.test("JsonObject.getOrThrow - returns property when found", () => {
-  const root = RootNode.parse('{"name": "test", "value": 42}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"name": "test", "value": 42}');
+  const obj = root.asObjectOrThrow();
 
   const nameProp = obj.getOrThrow("name");
   assertExists(nameProp);
@@ -959,8 +959,8 @@ Deno.test("JsonObject.getOrThrow - returns property when found", () => {
 });
 
 Deno.test("JsonObject.getOrThrow - throws when property not found", () => {
-  const root = RootNode.parse('{"name": "test"}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"name": "test"}');
+  const obj = root.asObjectOrThrow();
 
   try {
     obj.getOrThrow("nonexistent");
@@ -975,7 +975,7 @@ Deno.test("JsonObject.getOrThrow - throws when property not found", () => {
 });
 
 Deno.test("RootNode.valueOrThrow - returns value when present", () => {
-  const root = RootNode.parse('{"key": "value"}');
+  const root = parse('{"key": "value"}');
   const value = root.valueOrThrow();
 
   assertExists(value);
@@ -983,8 +983,8 @@ Deno.test("RootNode.valueOrThrow - returns value when present", () => {
 });
 
 Deno.test("RootNode.objectValueOrThrow - returns object when present", () => {
-  const root = RootNode.parse('{"key": "value"}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"key": "value"}');
+  const obj = root.asObjectOrThrow();
 
   assertExists(obj);
   const props = obj.properties();
@@ -992,10 +992,10 @@ Deno.test("RootNode.objectValueOrThrow - returns object when present", () => {
 });
 
 Deno.test("RootNode.objectValueOrThrow - throws when not object", () => {
-  const root = RootNode.parse("[1, 2, 3]");
+  const root = parse("[1, 2, 3]");
 
   try {
-    root.objectValueOrThrow();
+    root.asObjectOrThrow();
     throw new Error("Should have thrown");
   } catch (error) {
     assertExists(error);
@@ -1006,19 +1006,19 @@ Deno.test("RootNode.objectValueOrThrow - throws when not object", () => {
   }
 });
 
-Deno.test("RootNode.arrayValueOrThrow - returns array when present", () => {
-  const root = RootNode.parse("[1, 2, 3]");
-  const arr = root.arrayValueOrThrow();
+Deno.test("RootNode.asArrayOrThrow - returns array when present", () => {
+  const root = parse("[1, 2, 3]");
+  const arr = root.asArrayOrThrow();
 
   assertExists(arr);
   assertEquals(arr.elements().length, 3);
 });
 
-Deno.test("RootNode.arrayValueOrThrow - throws when not array", () => {
-  const root = RootNode.parse('{"key": "value"}');
+Deno.test("RootNode.asArrayOrThrow - throws when not array", () => {
+  const root = parse('{"key": "value"}');
 
   try {
-    root.arrayValueOrThrow();
+    root.asArrayOrThrow();
     throw new Error("Should have thrown");
   } catch (error) {
     assertExists(error);
@@ -1030,8 +1030,8 @@ Deno.test("RootNode.arrayValueOrThrow - throws when not array", () => {
 });
 
 Deno.test("Node.asStringOrThrow - returns string when string node", () => {
-  const root = RootNode.parse('{"name": "test"}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"name": "test"}');
+  const obj = root.asObjectOrThrow();
   const nameProp = obj.getOrThrow("name");
   const value = nameProp.valueOrThrow();
 
@@ -1040,8 +1040,8 @@ Deno.test("Node.asStringOrThrow - returns string when string node", () => {
 });
 
 Deno.test("Node.asStringOrThrow - throws when not string", () => {
-  const root = RootNode.parse('{"value": 42}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"value": 42}');
+  const obj = root.asObjectOrThrow();
   const valueProp = obj.getOrThrow("value");
   const value = valueProp.valueOrThrow();
 
@@ -1058,8 +1058,8 @@ Deno.test("Node.asStringOrThrow - throws when not string", () => {
 });
 
 Deno.test("Node.numberValueOrThrow - returns number when number node", () => {
-  const root = RootNode.parse('{"count": 42}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"count": 42}');
+  const obj = root.asObjectOrThrow();
   const countProp = obj.getOrThrow("count");
   const value = countProp.valueOrThrow();
 
@@ -1068,8 +1068,8 @@ Deno.test("Node.numberValueOrThrow - returns number when number node", () => {
 });
 
 Deno.test("Node.numberValueOrThrow - throws when not number", () => {
-  const root = RootNode.parse('{"name": "test"}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"name": "test"}');
+  const obj = root.asObjectOrThrow();
   const nameProp = obj.getOrThrow("name");
   const value = nameProp.valueOrThrow();
 
@@ -1086,8 +1086,8 @@ Deno.test("Node.numberValueOrThrow - throws when not number", () => {
 });
 
 Deno.test("Node.asBooleanOrThrow - returns boolean when boolean node", () => {
-  const root = RootNode.parse('{"active": true}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"active": true}');
+  const obj = root.asObjectOrThrow();
   const activeProp = obj.getOrThrow("active");
   const value = activeProp.valueOrThrow();
 
@@ -1096,8 +1096,8 @@ Deno.test("Node.asBooleanOrThrow - returns boolean when boolean node", () => {
 });
 
 Deno.test("Node.asBooleanOrThrow - throws when not boolean", () => {
-  const root = RootNode.parse('{"name": "test"}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"name": "test"}');
+  const obj = root.asObjectOrThrow();
   const nameProp = obj.getOrThrow("name");
   const value = nameProp.valueOrThrow();
 
@@ -1114,8 +1114,8 @@ Deno.test("Node.asBooleanOrThrow - throws when not boolean", () => {
 });
 
 Deno.test("Node.asObjectOrThrow - returns object when object node", () => {
-  const root = RootNode.parse('{"config": {"debug": true}}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"config": {"debug": true}}');
+  const obj = root.asObjectOrThrow();
   const configProp = obj.getOrThrow("config");
   const value = configProp.valueOrThrow();
 
@@ -1126,8 +1126,8 @@ Deno.test("Node.asObjectOrThrow - returns object when object node", () => {
 });
 
 Deno.test("Node.asObjectOrThrow - throws when not object", () => {
-  const root = RootNode.parse('{"items": [1, 2, 3]}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"items": [1, 2, 3]}');
+  const obj = root.asObjectOrThrow();
   const itemsProp = obj.getOrThrow("items");
   const value = itemsProp.valueOrThrow();
 
@@ -1144,8 +1144,8 @@ Deno.test("Node.asObjectOrThrow - throws when not object", () => {
 });
 
 Deno.test("Node.asArrayOrThrow - returns array when array node", () => {
-  const root = RootNode.parse('{"items": [1, 2, 3]}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"items": [1, 2, 3]}');
+  const obj = root.asObjectOrThrow();
   const itemsProp = obj.getOrThrow("items");
   const value = itemsProp.valueOrThrow();
 
@@ -1155,8 +1155,8 @@ Deno.test("Node.asArrayOrThrow - returns array when array node", () => {
 });
 
 Deno.test("Node.asArrayOrThrow - throws when not array", () => {
-  const root = RootNode.parse('{"config": {"debug": true}}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"config": {"debug": true}}');
+  const obj = root.asObjectOrThrow();
   const configProp = obj.getOrThrow("config");
   const value = configProp.valueOrThrow();
 
@@ -1173,8 +1173,8 @@ Deno.test("Node.asArrayOrThrow - throws when not array", () => {
 });
 
 Deno.test("JsonObjectProp.nameOrThrow - returns name when present", () => {
-  const root = RootNode.parse('{"test": 123}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"test": 123}');
+  const obj = root.asObjectOrThrow();
   const prop = obj.getOrThrow("test");
 
   const name = prop.nameOrThrow();
@@ -1182,8 +1182,8 @@ Deno.test("JsonObjectProp.nameOrThrow - returns name when present", () => {
 });
 
 Deno.test("JsonObjectProp.valueOrThrow - returns value when present", () => {
-  const root = RootNode.parse('{"test": 123}');
-  const obj = root.objectValueOrThrow();
+  const root = parse('{"test": 123}');
+  const obj = root.asObjectOrThrow();
   const prop = obj.getOrThrow("test");
 
   const value = prop.valueOrThrow();
@@ -1191,22 +1191,22 @@ Deno.test("JsonObjectProp.valueOrThrow - returns value when present", () => {
   assertEquals(value.isNumber(), true);
 });
 
-Deno.test("JsonObject.objectValueOrThrow - returns nested object", () => {
-  const root = RootNode.parse('{"config": {"debug": true}}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObject.getIfObjectOrThrow - returns nested object", () => {
+  const root = parse('{"config": {"debug": true}}');
+  const obj = root.asObjectOrThrow();
 
-  const configObj = obj.objectValueOrThrow("config");
+  const configObj = obj.getIfObjectOrThrow("config");
   assertExists(configObj);
   const debugProp = configObj.getOrThrow("debug");
   assertExists(debugProp);
 });
 
-Deno.test("JsonObject.objectValueOrThrow - throws when property not found", () => {
-  const root = RootNode.parse('{"other": 123}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObject.getIfObjectOrThrow - throws when property not found", () => {
+  const root = parse('{"other": 123}');
+  const obj = root.asObjectOrThrow();
 
   try {
-    obj.objectValueOrThrow("config");
+    obj.getIfObjectOrThrow("config");
     throw new Error("Should have thrown");
   } catch (error) {
     assertExists(error);
@@ -1217,21 +1217,21 @@ Deno.test("JsonObject.objectValueOrThrow - throws when property not found", () =
   }
 });
 
-Deno.test("JsonObject.arrayValueOrThrow - returns nested array", () => {
-  const root = RootNode.parse('{"items": [1, 2, 3]}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObject.getIfArrayOrThrow - returns nested array", () => {
+  const root = parse('{"items": [1, 2, 3]}');
+  const obj = root.asObjectOrThrow();
 
-  const arr = obj.arrayValueOrThrow("items");
+  const arr = obj.getIfArrayOrThrow("items");
   assertExists(arr);
   assertEquals(arr.elements().length, 3);
 });
 
-Deno.test("JsonObject.arrayValueOrThrow - throws when property not found", () => {
-  const root = RootNode.parse('{"other": 123}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObject.getIfArrayOrThrow - throws when property not found", () => {
+  const root = parse('{"other": 123}');
+  const obj = root.asObjectOrThrow();
 
   try {
-    obj.arrayValueOrThrow("items");
+    obj.getIfArrayOrThrow("items");
     throw new Error("Should have thrown");
   } catch (error) {
     assertExists(error);
@@ -1242,24 +1242,24 @@ Deno.test("JsonObject.arrayValueOrThrow - throws when property not found", () =>
   }
 });
 
-Deno.test("JsonObjectProp.objectValueOrThrow - returns object from property", () => {
-  const root = RootNode.parse('{"user": {"name": "John"}}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObjectProp.valueIfObjectOrThrow - returns object from property", () => {
+  const root = parse('{"user": {"name": "John"}}');
+  const obj = root.asObjectOrThrow();
   const userProp = obj.getOrThrow("user");
 
-  const userObj = userProp.objectValueOrThrow();
+  const userObj = userProp.valueIfObjectOrThrow();
   assertExists(userObj);
   const nameProp = userObj.getOrThrow("name");
   assertExists(nameProp);
 });
 
-Deno.test("JsonObjectProp.objectValueOrThrow - throws when not object", () => {
-  const root = RootNode.parse('{"count": 42}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObjectProp.valueIfObjectOrThrow - throws when not object", () => {
+  const root = parse('{"count": 42}');
+  const obj = root.asObjectOrThrow();
   const countProp = obj.getOrThrow("count");
 
   try {
-    countProp.objectValueOrThrow();
+    countProp.valueIfObjectOrThrow();
     throw new Error("Should have thrown");
   } catch (error) {
     assertExists(error);
@@ -1270,23 +1270,23 @@ Deno.test("JsonObjectProp.objectValueOrThrow - throws when not object", () => {
   }
 });
 
-Deno.test("JsonObjectProp.arrayValueOrThrow - returns array from property", () => {
-  const root = RootNode.parse('{"scores": [95, 87, 92]}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObjectProp.valueIfArrayOrThrow - returns array from property", () => {
+  const root = parse('{"scores": [95, 87, 92]}');
+  const obj = root.asObjectOrThrow();
   const scoresProp = obj.getOrThrow("scores");
 
-  const scoresArr = scoresProp.arrayValueOrThrow();
+  const scoresArr = scoresProp.valueIfArrayOrThrow();
   assertExists(scoresArr);
   assertEquals(scoresArr.elements().length, 3);
 });
 
-Deno.test("JsonObjectProp.arrayValueOrThrow - throws when not array", () => {
-  const root = RootNode.parse('{"count": 42}');
-  const obj = root.objectValueOrThrow();
+Deno.test("JsonObjectProp.valueIfArrayOrThrow - throws when not array", () => {
+  const root = parse('{"count": 42}');
+  const obj = root.asObjectOrThrow();
   const countProp = obj.getOrThrow("count");
 
   try {
-    countProp.arrayValueOrThrow();
+    countProp.valueIfArrayOrThrow();
     throw new Error("Should have thrown");
   } catch (error) {
     assertExists(error);
@@ -1298,11 +1298,11 @@ Deno.test("JsonObjectProp.arrayValueOrThrow - throws when not array", () => {
 });
 
 Deno.test("README example - getOrThrow usage", () => {
-  const root = RootNode.parse(`{
+  const root = parse(`{
   // comment
   "data": 123
 }`);
-  const rootObj = root.objectValueOrSet();
+  const rootObj = root.asObjectValueOrForce();
   rootObj.getOrThrow("data").setValue({
     "nested": true,
   });
@@ -1310,13 +1310,13 @@ Deno.test("README example - getOrThrow usage", () => {
 
   // Check actual node values instead of string includes
   const dataProp = rootObj.getOrThrow("data");
-  const dataObj = dataProp.objectValueOrThrow();
+  const dataObj = dataProp.valueIfObjectOrThrow();
   assertEquals(
     dataObj.getOrThrow("nested").valueOrThrow().asBooleanOrThrow(),
     true,
   );
 
-  const newKeyArr = rootObj.arrayValueOrThrow("new_key");
+  const newKeyArr = rootObj.getIfArrayOrThrow("new_key");
   const elements = newKeyArr.elements();
   assertEquals(elements.length, 3);
   assertEquals(elements[0].numberValueOrThrow(), "456");
