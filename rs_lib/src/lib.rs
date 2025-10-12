@@ -124,12 +124,12 @@ impl RootNode {
       .ok_or_else(|| throw_error("Expected an object value, but found a different type"))
   }
 
-  #[wasm_bindgen(js_name = asObjectValueOrCreate)]
+  #[wasm_bindgen(js_name = asObjectOrCreate)]
   pub fn as_object_or_create(&self) -> Option<JsonObject> {
     self.inner.object_value_or_create().map(|o| JsonObject { inner: o })
   }
 
-  #[wasm_bindgen(js_name = asObjectValueOrForce)]
+  #[wasm_bindgen(js_name = asObjectOrForce)]
   pub fn as_object_or_force(&self) -> JsonObject {
     JsonObject {
       inner: self.inner.object_value_or_set(),

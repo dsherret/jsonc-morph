@@ -519,7 +519,7 @@ Deno.test("RootNode - objectValueOrForce creates empty object", () => {
   const text = "null";
   const root = parse(text);
 
-  const obj = root.asObjectValueOrForce();
+  const obj = root.asObjectOrForce();
   assertExists(obj);
 
   const output = root.toString();
@@ -540,7 +540,7 @@ Deno.test("RootNode - arrayValueOrForce creates empty array", () => {
 Deno.test("JsonObject - objectValueOrForce creates nested object", () => {
   const text = "{}";
   const root = parse(text);
-  const obj = root.asObjectValueOrForce();
+  const obj = root.asObjectOrForce();
 
   const configObj = obj.getIfObjectOrForce("config");
   assertExists(configObj);
@@ -552,7 +552,7 @@ Deno.test("JsonObject - objectValueOrForce creates nested object", () => {
 Deno.test("JsonObject - arrayValueOrForce creates nested array", () => {
   const text = "{}";
   const root = parse(text);
-  const obj = root.asObjectValueOrForce();
+  const obj = root.asObjectOrForce();
 
   const itemsArr = obj.getIfArrayOrForce("items");
   assertExists(itemsArr);
@@ -835,7 +835,7 @@ Deno.test("RootNode - newlineKind detects newline type", () => {
 // Value conversion tests
 Deno.test("setValue - accepts object values", () => {
   const root = parse("null");
-  const obj = root.asObjectValueOrForce();
+  const obj = root.asObjectOrForce();
 
   obj.append("data", { nested: true, value: 123 });
 
@@ -850,7 +850,7 @@ Deno.test("setValue - accepts object values", () => {
 
 Deno.test("setValue - accepts array values", () => {
   const root = parse("{}");
-  const obj = root.asObjectValueOrForce();
+  const obj = root.asObjectOrForce();
 
   obj.append("items", [456, 789, false]);
 
@@ -866,7 +866,7 @@ Deno.test("setValue - accepts array values", () => {
 
 Deno.test("setValue - accepts primitives (string, number, boolean, null)", () => {
   const root = parse("{}");
-  const obj = root.asObjectValueOrForce();
+  const obj = root.asObjectOrForce();
 
   obj.append("str", "hello");
   obj.append("num", 42);
@@ -1302,7 +1302,7 @@ Deno.test("README example - getOrThrow usage", () => {
   // comment
   "data": 123
 }`);
-  const rootObj = root.asObjectValueOrForce();
+  const rootObj = root.asObjectOrForce();
   rootObj.getOrThrow("data").setValue({
     "nested": true,
   });
