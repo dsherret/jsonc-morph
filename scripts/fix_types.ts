@@ -15,12 +15,21 @@ const replacements: Array<[RegExp, string]> = [
   [/setValue\(root_value: any\)/g, "setValue(root_value: JsonValue)"],
 
   // JsonObject methods
-  [/append\(prop_name: string, value: any\)/g, "append(prop_name: string, value: JsonValue)"],
-  [/insert\(index: number, prop_name: string, value: any\)/g, "insert(index: number, prop_name: string, value: JsonValue)"],
+  [
+    /append\(prop_name: string, value: any\)/g,
+    "append(prop_name: string, value: JsonValue)",
+  ],
+  [
+    /insert\(index: number, prop_name: string, value: any\)/g,
+    "insert(index: number, prop_name: string, value: JsonValue)",
+  ],
 
   // JsonArray methods
   [/append\(value: any\)/g, "append(value: JsonValue)"],
-  [/insert\(index: number, value: any\)/g, "insert(index: number, value: JsonValue)"],
+  [
+    /insert\(index: number, value: any\)/g,
+    "insert(index: number, value: JsonValue)",
+  ],
 
   // ObjectProp.setValue
   [/setValue\(value: any\)/g, "setValue(value: JsonValue)"],
@@ -28,7 +37,12 @@ const replacements: Array<[RegExp, string]> = [
   // All replaceWith methods
   [/replaceWith\(replacement: any\)/g, "replaceWith(replacement: JsonValue)"],
   [/replaceWith\(value: any\)/g, "replaceWith(value: JsonValue)"],
-  [/replaceWith\(key: string, replacement: any\)/g, "replaceWith(key: string, replacement: JsonValue)"],
+  [
+    /replaceWith\(key: string, replacement: any\)/g,
+    "replaceWith(key: string, replacement: JsonValue)",
+  ],
+
+  [/newlineKind\(\): string/g, 'newlineKind(): "\\n" | "\\r\\n"'],
 ];
 
 // Apply all replacements

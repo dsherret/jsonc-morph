@@ -1,10 +1,11 @@
+use js_sys::JsString;
+use jsonc_parser::ParseOptions;
 use jsonc_parser::cst;
 use jsonc_parser::cst::CstContainerNode;
+use jsonc_parser::cst::CstInputValue;
 use jsonc_parser::cst::CstLeafNode;
 use jsonc_parser::cst::CstNode as JsoncCstNode;
-use jsonc_parser::ParseOptions;
 use wasm_bindgen::prelude::*;
-use jsonc_parser::cst::CstInputValue;
 
 fn throw_error(msg: &str) -> JsValue {
   js_sys::Error::new(msg).into()
@@ -12,10 +13,14 @@ fn throw_error(msg: &str) -> JsValue {
 
 #[wasm_bindgen]
 extern "C" {
-  #[wasm_bindgen(typescript_type = "{ allowComments?: boolean; allowTrailingCommas?: boolean; allowLooseObjectPropertyNames?: boolean; }")]
+  #[wasm_bindgen(
+    typescript_type = "{ allowComments?: boolean; allowTrailingCommas?: boolean; allowLooseObjectPropertyNames?: boolean; }"
+  )]
   pub type JsoncParseOptionsObject;
 
-  #[wasm_bindgen(typescript_type = "string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }")]
+  #[wasm_bindgen(
+    typescript_type = "string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }"
+  )]
   pub type JsonValue;
 }
 
@@ -29,7 +34,10 @@ export type JsonValue = string | number | boolean | null | JsonValue[] | { [key:
 /// @param options - Optional parsing options
 /// @returns The root node of the parsed CST
 #[wasm_bindgen]
-pub fn parse(text: &str, options: Option<JsoncParseOptionsObject>) -> Result<RootNode, JsValue> {
+pub fn parse(
+  text: &str,
+  options: Option<JsoncParseOptionsObject>,
+) -> Result<RootNode, JsValue> {
   let parse_options = match options {
     Some(opts) => parse_options_from_js(&opts.into()),
     None => ParseOptions::default(),
@@ -41,39 +49,41 @@ pub fn parse(text: &str, options: Option<JsoncParseOptionsObject>) -> Result<Roo
 }
 
 fn parse_options_from_js(obj: &JsValue) -> ParseOptions {
-  let mut options = ParseOptions::default();
+  let defaults = ParseOptions::default();
 
-  if obj.is_object() {
-    if let Ok(allow_comments) = js_sys::Reflect::get(obj, &"allowComments".into()) {
-      if let Some(val) = allow_comments.as_bool() {
-        options.allow_comments = val;
-      }
-    }
-
-    if let Ok(allow_trailing_commas) =
-      js_sys::Reflect::get(obj, &"allowTrailingCommas".into())
-    {
-      if let Some(val) = allow_trailing_commas.as_bool() {
-        options.allow_trailing_commas = val;
-      }
-    }
-
-    if let Ok(allow_loose) =
-      js_sys::Reflect::get(obj, &"allowLooseObjectPropertyNames".into())
-    {
-      if let Some(val) = allow_loose.as_bool() {
-        options.allow_loose_object_property_names = val;
-      }
-    }
+  if !obj.is_object() {
+    return defaults;
   }
 
-  options
+  let allow_comments = js_sys::Reflect::get(obj, &"allowComments".into())
+    .ok()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(defaults.allow_comments);
+
+  let allow_trailing_commas =
+    js_sys::Reflect::get(obj, &"allowTrailingCommas".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_trailing_commas);
+
+  let allow_loose_object_property_names =
+    js_sys::Reflect::get(obj, &"allowLooseObjectPropertyNames".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_loose_object_property_names);
+
+  ParseOptions {
+    allow_comments,
+    allow_trailing_commas,
+    allow_loose_object_property_names,
+  }
 }
 
 fn js_value_to_cst_input(value: &JsValue) -> Result<CstInputValue, JsValue> {
   // Convert JsValue to serde_json::Value using serde-wasm-bindgen
-  let serde_value: serde_json::Value = serde_wasm_bindgen::from_value(value.clone())
-    .map_err(|e| throw_error(&format!("Failed to convert value: {}", e)))?;
+  let serde_value: serde_json::Value =
+    serde_wasm_bindgen::from_value(value.clone())
+      .map_err(|e| throw_error(&format!("Failed to convert value: {}", e)))?;
 
   // Convert serde_json::Value to CstInputValue
   Ok(convert_serde_to_cst_input(serde_value))
@@ -94,7 +104,8 @@ fn convert_serde_to_cst_input(value: serde_json::Value) -> CstInputValue {
     }
     serde_json::Value::String(s) => CstInputValue::from(s),
     serde_json::Value::Array(arr) => {
-      let converted: Vec<CstInputValue> = arr.into_iter().map(convert_serde_to_cst_input).collect();
+      let converted: Vec<CstInputValue> =
+        arr.into_iter().map(convert_serde_to_cst_input).collect();
       CstInputValue::from(converted)
     }
     serde_json::Value::Object(obj) => {
@@ -105,6 +116,11 @@ fn convert_serde_to_cst_input(value: serde_json::Value) -> CstInputValue {
       CstInputValue::from(converted)
     }
   }
+}
+
+thread_local! {
+  static LF: JsString = JsString::from("\n");
+  static CRLF: JsString = JsString::from("\r\n");
 }
 
 /// Represents the root node of a JSONC document.
@@ -123,7 +139,8 @@ impl RootNode {
 
   #[wasm_bindgen(js_name = valueOrThrow)]
   pub fn value_or_throw(&self) -> Result<Node, JsValue> {
-    self.value()
+    self
+      .value()
       .ok_or_else(|| throw_error("Expected a value, but found none"))
   }
 
@@ -134,13 +151,17 @@ impl RootNode {
 
   #[wasm_bindgen(js_name = asObjectOrThrow)]
   pub fn as_object_or_throw(&self) -> Result<JsonObject, JsValue> {
-    self.as_object()
-      .ok_or_else(|| throw_error("Expected an object value, but found a different type"))
+    self.as_object().ok_or_else(|| {
+      throw_error("Expected an object value, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = asObjectOrCreate)]
   pub fn as_object_or_create(&self) -> Option<JsonObject> {
-    self.inner.object_value_or_create().map(|o| JsonObject { inner: o })
+    self
+      .inner
+      .object_value_or_create()
+      .map(|o| JsonObject { inner: o })
   }
 
   #[wasm_bindgen(js_name = asObjectOrForce)]
@@ -157,13 +178,17 @@ impl RootNode {
 
   #[wasm_bindgen(js_name = asArrayOrThrow)]
   pub fn as_array_or_throw(&self) -> Result<JsonArray, JsValue> {
-    self.as_array()
-      .ok_or_else(|| throw_error("Expected an array value, but found a different type"))
+    self.as_array().ok_or_else(|| {
+      throw_error("Expected an array value, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = asArrayOrCreate)]
   pub fn as_array_or_create(&self) -> Option<JsonArray> {
-    self.inner.array_value_or_create().map(|a| JsonArray { inner: a })
+    self
+      .inner
+      .array_value_or_create()
+      .map(|a| JsonArray { inner: a })
   }
 
   #[wasm_bindgen(js_name = asArrayOrForce)]
@@ -190,10 +215,10 @@ impl RootNode {
 
   /// Sets the root value of the document.
   /// Accepts any JSON value: string, number, boolean, null, array, or object.
-  /// @param root_value - The new value to set
+  /// @param value - The new value to set
   #[wasm_bindgen(js_name = setValue)]
-  pub fn set_value(&self, root_value: JsValue) -> Result<(), JsValue> {
-    let cst_input = js_value_to_cst_input(&root_value)?;
+  pub fn set_value(&self, value: JsValue) -> Result<(), JsValue> {
+    let cst_input = js_value_to_cst_input(&value)?;
     self.inner.set_value(cst_input);
     Ok(())
   }
@@ -220,8 +245,11 @@ impl RootNode {
   }
 
   #[wasm_bindgen(js_name = newlineKind)]
-  pub fn newline_kind(&self) -> String {
-    format!("{:?}", self.inner.newline_kind())
+  pub fn newline_kind(&self) -> JsString {
+    match self.inner.newline_kind() {
+      cst::CstNewlineKind::LineFeed => LF.with(|s| s.clone()),
+      cst::CstNewlineKind::CarriageReturnLineFeed => CRLF.with(|s| s.clone()),
+    }
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -337,7 +365,9 @@ impl Node {
       JsoncCstNode::Container(CstContainerNode::Object(obj)) => {
         Ok(JsonObject { inner: obj.clone() })
       }
-      _ => Err(throw_error("Expected an object node, but found a different type")),
+      _ => Err(throw_error(
+        "Expected an object node, but found a different type",
+      )),
     }
   }
 
@@ -357,7 +387,9 @@ impl Node {
       JsoncCstNode::Container(CstContainerNode::Array(arr)) => {
         Ok(JsonArray { inner: arr.clone() })
       }
-      _ => Err(throw_error("Expected an array node, but found a different type")),
+      _ => Err(throw_error(
+        "Expected an array node, but found a different type",
+      )),
     }
   }
 
@@ -368,8 +400,9 @@ impl Node {
 
   #[wasm_bindgen(js_name = asRootNodeOrThrow)]
   pub fn as_root_node_or_throw(&self) -> Result<RootNode, JsValue> {
-    self.as_root_node()
-      .ok_or_else(|| throw_error("Expected a root node, but found a different type"))
+    self.as_root_node().ok_or_else(|| {
+      throw_error("Expected a root node, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = asString)]
@@ -386,7 +419,9 @@ impl Node {
       JsoncCstNode::Leaf(CstLeafNode::StringLit(s)) => s
         .decoded_value()
         .map_err(|e| throw_error(&format!("Failed to decode string: {}", e))),
-      _ => Err(throw_error("Expected a string node, but found a different type")),
+      _ => Err(throw_error(
+        "Expected a string node, but found a different type",
+      )),
     }
   }
 
@@ -402,7 +437,9 @@ impl Node {
   pub fn number_value_or_throw(&self) -> Result<String, JsValue> {
     match &self.inner {
       JsoncCstNode::Leaf(CstLeafNode::NumberLit(n)) => Ok(n.to_string()),
-      _ => Err(throw_error("Expected a number node, but found a different type")),
+      _ => Err(throw_error(
+        "Expected a number node, but found a different type",
+      )),
     }
   }
 
@@ -418,7 +455,9 @@ impl Node {
   pub fn as_boolean_or_throw(&self) -> Result<bool, JsValue> {
     match &self.inner {
       JsoncCstNode::Leaf(CstLeafNode::BooleanLit(b)) => Ok(b.value()),
-      _ => Err(throw_error("Expected a boolean node, but found a different type")),
+      _ => Err(throw_error(
+        "Expected a boolean node, but found a different type",
+      )),
     }
   }
 
@@ -454,8 +493,9 @@ impl Node {
 
   #[wasm_bindgen(js_name = asStringLitOrThrow)]
   pub fn as_string_lit_or_throw(&self) -> Result<StringLit, JsValue> {
-    self.as_string_lit()
-      .ok_or_else(|| throw_error("Expected a string literal node, but found a different type"))
+    self.as_string_lit().ok_or_else(|| {
+      throw_error("Expected a string literal node, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = asNumberLit)]
@@ -470,8 +510,9 @@ impl Node {
 
   #[wasm_bindgen(js_name = asNumberLitOrThrow)]
   pub fn as_number_lit_or_throw(&self) -> Result<NumberLit, JsValue> {
-    self.as_number_lit()
-      .ok_or_else(|| throw_error("Expected a number literal node, but found a different type"))
+    self.as_number_lit().ok_or_else(|| {
+      throw_error("Expected a number literal node, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = asBooleanLit)]
@@ -486,8 +527,9 @@ impl Node {
 
   #[wasm_bindgen(js_name = asBooleanLitOrThrow)]
   pub fn as_boolean_lit_or_throw(&self) -> Result<BooleanLit, JsValue> {
-    self.as_boolean_lit()
-      .ok_or_else(|| throw_error("Expected a boolean literal node, but found a different type"))
+    self.as_boolean_lit().ok_or_else(|| {
+      throw_error("Expected a boolean literal node, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = asNullKeyword)]
@@ -502,8 +544,9 @@ impl Node {
 
   #[wasm_bindgen(js_name = asNullKeywordOrThrow)]
   pub fn as_null_keyword_or_throw(&self) -> Result<NullKeyword, JsValue> {
-    self.as_null_keyword()
-      .ok_or_else(|| throw_error("Expected a null keyword node, but found a different type"))
+    self.as_null_keyword().ok_or_else(|| {
+      throw_error("Expected a null keyword node, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = asWordLit)]
@@ -518,8 +561,9 @@ impl Node {
 
   #[wasm_bindgen(js_name = asWordLitOrThrow)]
   pub fn as_word_lit_or_throw(&self) -> Result<WordLit, JsValue> {
-    self.as_word_lit()
-      .ok_or_else(|| throw_error("Expected a word literal node, but found a different type"))
+    self.as_word_lit().ok_or_else(|| {
+      throw_error("Expected a word literal node, but found a different type")
+    })
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -531,7 +575,8 @@ impl Node {
 
   #[wasm_bindgen(js_name = parentOrThrow)]
   pub fn parent_or_throw(&self) -> Result<Node, JsValue> {
-    self.parent()
+    self
+      .parent()
       .ok_or_else(|| throw_error("Expected a parent node, but found none"))
   }
 
@@ -586,7 +631,8 @@ impl Node {
 
   #[wasm_bindgen(js_name = rootNodeOrThrow)]
   pub fn root_node_or_throw(&self) -> Result<RootNode, JsValue> {
-    self.root_node()
+    self
+      .root_node()
       .ok_or_else(|| throw_error("Expected a root node, but found none"))
   }
 
@@ -693,8 +739,12 @@ impl JsonObject {
 
   #[wasm_bindgen(js_name = getOrThrow)]
   pub fn get_or_throw(&self, key: &str) -> Result<ObjectProp, JsValue> {
-    self.get(key)
-      .ok_or_else(|| throw_error(&format!("Expected property '{}', but it was not found", key)))
+    self.get(key).ok_or_else(|| {
+      throw_error(&format!(
+        "Expected property '{}', but it was not found",
+        key
+      ))
+    })
   }
 
   #[wasm_bindgen(js_name = getIfObject)]
@@ -706,7 +756,10 @@ impl JsonObject {
   }
 
   #[wasm_bindgen(js_name = getIfObjectOrThrow)]
-  pub fn get_if_object_or_throw(&self, name: &str) -> Result<JsonObject, JsValue> {
+  pub fn get_if_object_or_throw(
+    &self,
+    name: &str,
+  ) -> Result<JsonObject, JsValue> {
     self.get_if_object(name)
       .ok_or_else(|| throw_error(&format!("Expected property '{}' to have an object value, but it was not found or has a different type", name)))
   }
@@ -732,7 +785,10 @@ impl JsonObject {
   }
 
   #[wasm_bindgen(js_name = getIfArrayOrThrow)]
-  pub fn get_if_array_or_throw(&self, name: &str) -> Result<JsonArray, JsValue> {
+  pub fn get_if_array_or_throw(
+    &self,
+    name: &str,
+  ) -> Result<JsonArray, JsValue> {
     self.get_if_array(name)
       .ok_or_else(|| throw_error(&format!("Expected property '{}' to have an array value, but it was not found or has a different type", name)))
   }
@@ -768,25 +824,34 @@ impl JsonObject {
   }
 
   /// Appends a new property to the object.
-  /// @param prop_name - The name of the property to add
+  /// @param key - The name of the property to add
   /// @param value - The value to set for the property
   /// @returns The newly created property
   #[wasm_bindgen(js_name = append)]
-  pub fn append(&self, prop_name: &str, value: JsValue) -> Result<ObjectProp, JsValue> {
+  pub fn append(
+    &self,
+    key: &str,
+    value: JsValue,
+  ) -> Result<ObjectProp, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
-    let prop = self.inner.append(prop_name, cst_input);
+    let prop = self.inner.append(key, cst_input);
     Ok(ObjectProp { inner: prop })
   }
 
   /// Inserts a new property at the specified index.
   /// @param index - The position to insert the property at
-  /// @param prop_name - The name of the property to add
+  /// @param key - The name of the property to add
   /// @param value - The value to set for the property
   /// @returns The newly created property
   #[wasm_bindgen(js_name = insert)]
-  pub fn insert(&self, index: usize, prop_name: &str, value: JsValue) -> Result<ObjectProp, JsValue> {
+  pub fn insert(
+    &self,
+    index: usize,
+    key: &str,
+    value: JsValue,
+  ) -> Result<ObjectProp, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
-    let prop = self.inner.insert(index, prop_name, cst_input);
+    let prop = self.inner.insert(index, key, cst_input);
     Ok(ObjectProp { inner: prop })
   }
 
@@ -810,13 +875,18 @@ impl JsonObject {
   /// @param replacement - The new value to replace this object with
   /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+  pub fn replace_with(
+    &self,
+    replacement: JsValue,
+  ) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -911,8 +981,9 @@ pub struct ObjectPropName {
 impl ObjectPropName {
   #[wasm_bindgen(js_name = decodedValue)]
   pub fn decoded_value(&self) -> Result<String, JsValue> {
-    self.inner.decoded_value()
-      .map_err(|e| throw_error(&format!("Failed to decode property name: {}", e)))
+    self.inner.decoded_value().map_err(|e| {
+      throw_error(&format!("Failed to decode property name: {}", e))
+    })
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -979,7 +1050,8 @@ impl ObjectProp {
 
   #[wasm_bindgen(js_name = nameOrThrow)]
   pub fn name_or_throw(&self) -> Result<ObjectPropName, JsValue> {
-    self.name()
+    self
+      .name()
       .ok_or_else(|| throw_error("Expected a property name, but found none"))
   }
 
@@ -990,7 +1062,8 @@ impl ObjectProp {
 
   #[wasm_bindgen(js_name = valueOrThrow)]
   pub fn value_or_throw(&self) -> Result<Node, JsValue> {
-    self.value()
+    self
+      .value()
       .ok_or_else(|| throw_error("Expected a property value, but found none"))
   }
 
@@ -1019,8 +1092,11 @@ impl ObjectProp {
 
   #[wasm_bindgen(js_name = valueIfArrayOrThrow)]
   pub fn value_if_array_or_throw(&self) -> Result<JsonArray, JsValue> {
-    self.value_if_array()
-      .ok_or_else(|| throw_error("Expected property to have an array value, but it has a different type"))
+    self.value_if_array().ok_or_else(|| {
+      throw_error(
+        "Expected property to have an array value, but it has a different type",
+      )
+    })
   }
 
   #[wasm_bindgen(js_name = valueIfArrayOrForce)]
@@ -1053,13 +1129,19 @@ impl ObjectProp {
   /// @param replacement - The new value for the property
   /// @returns The new node that replaced this property, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, key: &str, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+  pub fn replace_with(
+    &self,
+    key: &str,
+    replacement: JsValue,
+  ) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(key, cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(key, cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -1251,11 +1333,13 @@ impl JsonArray {
   #[wasm_bindgen(js_name = replaceWith)]
   pub fn replace_with(&self, value: JsValue) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = parent)]
@@ -1354,7 +1438,9 @@ impl StringLit {
   /// @returns The decoded string value
   #[wasm_bindgen(js_name = decodedValue)]
   pub fn decoded_value(&self) -> Result<String, JsValue> {
-    self.inner.decoded_value()
+    self
+      .inner
+      .decoded_value()
       .map_err(|e| throw_error(&format!("Failed to decode string: {}", e)))
   }
 
@@ -1376,13 +1462,18 @@ impl StringLit {
   /// @param replacement - The new value to replace this string with
   /// @returns The new node that replaced this one, or undefined if this was the root value
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+  pub fn replace_with(
+    &self,
+    replacement: JsValue,
+  ) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = remove)]
@@ -1478,13 +1569,18 @@ impl NumberLit {
   }
 
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+  pub fn replace_with(
+    &self,
+    replacement: JsValue,
+  ) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = remove)]
@@ -1580,13 +1676,18 @@ impl BooleanLit {
   }
 
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+  pub fn replace_with(
+    &self,
+    replacement: JsValue,
+  ) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = remove)]
@@ -1671,13 +1772,18 @@ pub struct NullKeyword {
 #[wasm_bindgen]
 impl NullKeyword {
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+  pub fn replace_with(
+    &self,
+    replacement: JsValue,
+  ) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = remove)]
@@ -1773,13 +1879,18 @@ impl WordLit {
   }
 
   #[wasm_bindgen(js_name = replaceWith)]
-  pub fn replace_with(&self, replacement: JsValue) -> Result<Option<Node>, JsValue> {
+  pub fn replace_with(
+    &self,
+    replacement: JsValue,
+  ) -> Result<Option<Node>, JsValue> {
     let cst_input = js_value_to_cst_input(&replacement)?;
-    Ok(self
-      .inner
-      .clone()
-      .replace_with(cst_input)
-      .map(|n| Node { inner: n }))
+    Ok(
+      self
+        .inner
+        .clone()
+        .replace_with(cst_input)
+        .map(|n| Node { inner: n }),
+    )
   }
 
   #[wasm_bindgen(js_name = remove)]
