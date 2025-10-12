@@ -14,8 +14,20 @@ fn throw_error(msg: &str) -> JsValue {
 extern "C" {
   #[wasm_bindgen(typescript_type = "{ allowComments?: boolean; allowTrailingCommas?: boolean; allowLooseObjectPropertyNames?: boolean; }")]
   pub type JsoncParseOptionsObject;
+
+  #[wasm_bindgen(typescript_type = "string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }")]
+  pub type JsonValue;
 }
 
+#[wasm_bindgen(typescript_custom_section)]
+const TS_APPEND_CONTENT: &'static str = r#"
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+"#;
+
+/// Parses a JSONC (JSON with Comments) string into a concrete syntax tree.
+/// @param text - The JSONC text to parse
+/// @param options - Optional parsing options
+/// @returns The root node of the parsed CST
 #[wasm_bindgen]
 pub fn parse(text: &str, options: Option<JsoncParseOptionsObject>) -> Result<RootNode, JsValue> {
   let parse_options = match options {
@@ -95,6 +107,8 @@ fn convert_serde_to_cst_input(value: serde_json::Value) -> CstInputValue {
   }
 }
 
+/// Represents the root node of a JSONC document.
+/// This is the entry point for manipulating the concrete syntax tree.
 #[wasm_bindgen]
 pub struct RootNode {
   inner: cst::CstRootNode,
@@ -174,6 +188,9 @@ impl RootNode {
       .collect()
   }
 
+  /// Sets the root value of the document.
+  /// Accepts any JSON value: string, number, boolean, null, array, or object.
+  /// @param root_value - The new value to set
   #[wasm_bindgen(js_name = setValue)]
   pub fn set_value(&self, root_value: JsValue) -> Result<(), JsValue> {
     let cst_input = js_value_to_cst_input(&root_value)?;
@@ -284,6 +301,8 @@ impl RootNode {
   }
 }
 
+/// Represents a generic node in the CST.
+/// Can be a container node (object, array, property) or a leaf node (string, number, boolean, null).
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct Node {
@@ -647,6 +666,8 @@ impl Node {
   }
 }
 
+/// Represents a JSON object node in the CST.
+/// Provides methods for manipulating object properties.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct JsonObject {
@@ -746,6 +767,10 @@ impl JsonObject {
       .collect()
   }
 
+  /// Appends a new property to the object.
+  /// @param prop_name - The name of the property to add
+  /// @param value - The value to set for the property
+  /// @returns The newly created property
   #[wasm_bindgen(js_name = append)]
   pub fn append(&self, prop_name: &str, value: JsValue) -> Result<ObjectProp, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
@@ -753,6 +778,11 @@ impl JsonObject {
     Ok(ObjectProp { inner: prop })
   }
 
+  /// Inserts a new property at the specified index.
+  /// @param index - The position to insert the property at
+  /// @param prop_name - The name of the property to add
+  /// @param value - The value to set for the property
+  /// @returns The newly created property
   #[wasm_bindgen(js_name = insert)]
   pub fn insert(&self, index: usize, prop_name: &str, value: JsValue) -> Result<ObjectProp, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
@@ -1129,6 +1159,8 @@ impl ObjectProp {
   }
 }
 
+/// Represents a JSON array node in the CST.
+/// Provides methods for manipulating array elements.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct JsonArray {
@@ -1137,6 +1169,8 @@ pub struct JsonArray {
 
 #[wasm_bindgen]
 impl JsonArray {
+  /// Returns all element nodes in the array.
+  /// @returns Array of element nodes
   #[wasm_bindgen(js_name = elements)]
   pub fn elements(&self) -> Vec<Node> {
     self
@@ -1147,16 +1181,20 @@ impl JsonArray {
       .collect()
   }
 
+  /// Removes this array from its parent.
   #[wasm_bindgen(js_name = remove)]
   pub fn remove(self) {
     self.inner.remove();
   }
 
+  /// Ensures the array is formatted with each element on its own line.
   #[wasm_bindgen(js_name = ensureMultiline)]
   pub fn ensure_multiline(&self) {
     self.inner.ensure_multiline();
   }
 
+  /// Returns all child nodes including whitespace and punctuation.
+  /// @returns Array of all child nodes
   #[wasm_bindgen(js_name = children)]
   pub fn children(&self) -> Vec<Node> {
     self
@@ -1167,6 +1205,9 @@ impl JsonArray {
       .collect()
   }
 
+  /// Appends a new element to the end of the array.
+  /// @param value - The value to append
+  /// @returns The newly created element node
   #[wasm_bindgen(js_name = append)]
   pub fn append(&self, value: JsValue) -> Result<Node, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
@@ -1174,6 +1215,10 @@ impl JsonArray {
     Ok(Node { inner: node })
   }
 
+  /// Inserts a new element at the specified index.
+  /// @param index - The position to insert at
+  /// @param value - The value to insert
+  /// @returns The newly created element node
   #[wasm_bindgen(js_name = insert)]
   pub fn insert(&self, index: usize, value: JsValue) -> Result<Node, JsValue> {
     let cst_input = js_value_to_cst_input(&value)?;
@@ -1284,6 +1329,8 @@ impl JsonArray {
   }
 }
 
+/// Represents a string literal node in the CST.
+/// Provides methods for manipulating string values and their formatting.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct StringLit {
@@ -1292,17 +1339,23 @@ pub struct StringLit {
 
 #[wasm_bindgen]
 impl StringLit {
+  /// Returns the decoded string value (without quotes and with escape sequences processed).
+  /// @returns The decoded string value
   #[wasm_bindgen(js_name = decodedValue)]
   pub fn decoded_value(&self) -> Result<String, JsValue> {
     self.inner.decoded_value()
       .map_err(|e| throw_error(&format!("Failed to decode string: {}", e)))
   }
 
+  /// Returns the raw string value including quotes and escape sequences.
+  /// @returns The raw string representation
   #[wasm_bindgen(js_name = rawValue)]
   pub fn raw_value(&self) -> String {
     self.inner.raw_value().to_string()
   }
 
+  /// Sets the raw string value (should include quotes).
+  /// @param value - The new raw string value
   #[wasm_bindgen(js_name = setRawValue)]
   pub fn set_raw_value(&self, value: String) {
     self.inner.set_raw_value(value);
@@ -1390,6 +1443,8 @@ impl StringLit {
   }
 }
 
+/// Represents a number literal node in the CST.
+/// Provides methods for manipulating number values.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct NumberLit {
@@ -1490,6 +1545,8 @@ impl NumberLit {
   }
 }
 
+/// Represents a boolean literal node in the CST.
+/// Provides methods for manipulating boolean values.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct BooleanLit {
@@ -1590,6 +1647,7 @@ impl BooleanLit {
   }
 }
 
+/// Represents a null keyword node in the CST.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct NullKeyword {
@@ -1680,6 +1738,8 @@ impl NullKeyword {
   }
 }
 
+/// Represents an unquoted word literal node in the CST.
+/// Used for unquoted property names when `allowLooseObjectPropertyNames` is enabled.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct WordLit {
