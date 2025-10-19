@@ -1,4 +1,4 @@
-import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import { assertEquals, assertExists } from "@std/assert";
 import { parse, parseToValue } from "./mod.ts";
 
 Deno.test("RootNode - parse simple object", () => {
@@ -1328,7 +1328,11 @@ Deno.test("README example - getOrThrow usage", () => {
 
 Deno.test("parseToValue - simple object", () => {
   const text = '{"name": "John", "age": 30, "active": true}';
-  const result = parseToValue(text) as { name: string; age: number; active: boolean };
+  const result = parseToValue(text) as {
+    name: string;
+    age: number;
+    active: boolean;
+  };
 
   assertEquals(result.name, "John");
   assertEquals(result.age, 30);
