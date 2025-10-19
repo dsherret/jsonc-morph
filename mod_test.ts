@@ -1326,10 +1326,6 @@ Deno.test("README example - getOrThrow usage", () => {
   assertEquals(elements[2].asBooleanOrThrow(), false);
 });
 
-// ============================================================================
-// Tests for parseToValue() and toValue() methods
-// ============================================================================
-
 Deno.test("parseToValue - simple object", () => {
   const text = '{"name": "John", "age": 30, "active": true}';
   const result = parseToValue(text) as { name: string; age: number; active: boolean };
