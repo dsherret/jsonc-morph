@@ -42,6 +42,13 @@ const replacements: Array<[RegExp, string]> = [
     "replaceWith(key: string, replacement: JsonValue)",
   ],
 
+  // parseToValue and toValue methods
+  [
+    /parseToValue\([^)]*\): any/g,
+    (match) => match.replace(": any", ": JsonValue"),
+  ],
+  [/toValue\(\): any/g, "toValue(): JsonValue"],
+
   [/newlineKind\(\): string/g, 'newlineKind(): "\\n" | "\\r\\n"'],
 ];
 

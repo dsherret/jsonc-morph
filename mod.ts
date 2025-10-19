@@ -9,6 +9,7 @@ export {
   ObjectProp,
   ObjectPropName,
   parse,
+  parseToValue,
   RootNode,
   StringLit,
   WordLit,

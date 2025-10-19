@@ -5,6 +5,7 @@ use jsonc_parser::cst::CstContainerNode;
 use jsonc_parser::cst::CstInputValue;
 use jsonc_parser::cst::CstLeafNode;
 use jsonc_parser::cst::CstNode as JsoncCstNode;
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 fn throw_error(msg: &str) -> JsValue {
@@ -46,6 +47,33 @@ pub fn parse(
   let root = cst::CstRootNode::parse(text, &parse_options)
     .map_err(|e| throw_error(&format!("Parse error: {}", e.kind())))?;
   Ok(RootNode { inner: root })
+}
+
+/// Parses a JSONC (JSON with Comments) string directly to a JavaScript object.
+/// @param text - The JSONC text to parse
+/// @param options - Optional parsing options
+/// @returns The plain JavaScript value (object, array, string, number, boolean, or null)
+/// @throws If the text cannot be parsed or converted
+#[wasm_bindgen(js_name = parseToValue)]
+pub fn parse_to_value(
+  text: &str,
+  options: Option<JsoncParseOptionsObject>,
+) -> Result<JsValue, JsValue> {
+  let parse_options = match options {
+    Some(opts) => parse_options_from_js(&opts.into()),
+    None => ParseOptions::default(),
+  };
+
+  // Use the more efficient parse_to_serde_value API from jsonc_parser
+  // This skips building the full CST and directly produces a serde_json::Value
+  let serde_value = jsonc_parser::parse_to_serde_value(text, &parse_options)
+    .map_err(|e| throw_error(&format!("Parse error: {}", e)))?;
+
+  // Convert serde_json::Value to JsValue using serde-wasm-bindgen with custom serializer
+  // Use serialize_maps_as_objects to get plain JS objects instead of Maps
+  let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+  serde_value.serialize(&serializer)
+    .map_err(|e| throw_error(&format!("Failed to convert value: {}", e)))
 }
 
 fn parse_options_from_js(obj: &JsValue) -> ParseOptions {
@@ -388,6 +416,20 @@ impl RootNode {
   #[wasm_bindgen(js_name = childAtIndex)]
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
+  }
+
+  /// Converts the CST to a plain JavaScript value, similar to JSON.parse.
+  /// This recursively converts the root value to its JavaScript equivalent.
+  /// Comments and formatting information are discarded.
+  /// @returns The plain JavaScript value (object, array, string, number, boolean, or null)
+  /// @throws If the document contains invalid values that cannot be converted
+  #[wasm_bindgen(js_name = toValue)]
+  pub fn to_value(&self) -> JsValue {
+    if let Some(value_node) = self.value() {
+      value_node.to_value()
+    } else {
+      JsValue::UNDEFINED
+    }
   }
 }
 
@@ -890,6 +932,24 @@ impl Node {
   pub fn child_at_index(&self, index: usize) -> Option<Node> {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
   }
+
+  /// Converts this CST node to a plain JavaScript value.
+  /// This recursively converts objects, arrays, and primitives to their JavaScript equivalents.
+  /// Comments and formatting information are discarded.
+  /// @returns The plain JavaScript value (object, array, string, number, boolean, or null)
+  /// @throws If the node contains invalid values that cannot be converted
+  #[wasm_bindgen(js_name = toValue)]
+  pub fn to_value(&self) -> JsValue {
+    match self.inner.to_serde_value() {
+      Some(value) => {
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        value.serialize(&serializer).unwrap_or(JsValue::UNDEFINED)
+      }
+      None => {
+        JsValue::UNDEFINED
+      }
+    }
+  } 
 }
 
 /// Represents a JSON object node in the CST.

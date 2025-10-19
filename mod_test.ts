@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { parse } from "./mod.ts";
+import { parse, parseToValue } from "./mod.ts";
 
 Deno.test("RootNode - parse simple object", () => {
   const text = '{"name": "test", "value": 42}';
@@ -1324,4 +1324,345 @@ Deno.test("README example - getOrThrow usage", () => {
   assertEquals(elements[0].numberValueOrThrow(), "456");
   assertEquals(elements[1].numberValueOrThrow(), "789");
   assertEquals(elements[2].asBooleanOrThrow(), false);
+});
+
+Deno.test("parseToValue - simple object", () => {
+  const text = '{"name": "John", "age": 30, "active": true}';
+  const result = parseToValue(text) as {
+    name: string;
+    age: number;
+    active: boolean;
+  };
+
+  assertEquals(result.name, "John");
+  assertEquals(result.age, 30);
+  assertEquals(result.active, true);
+});
+
+Deno.test("parseToValue - object with comments", () => {
+  const text = `{
+    // This is a comment
+    "name": "Jane",
+    /* Multi-line comment
+       with more info */
+    "age": 25
+  }`;
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text, { allowComments: true }) as any;
+
+  assertEquals(result.name, "Jane");
+  assertEquals(result.age, 25);
+});
+
+Deno.test("parseToValue - object with trailing commas", () => {
+  const text = `{
+    "name": "Bob",
+    "age": 35,
+  }`;
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text, { allowTrailingCommas: true }) as any;
+
+  assertEquals(result.name, "Bob");
+  assertEquals(result.age, 35);
+});
+
+Deno.test("parseToValue - nested objects", () => {
+  const text = `{
+    "user": {
+      "name": "Alice",
+      "address": {
+        "city": "NYC",
+        "zip": 10001
+      }
+    }
+  }`;
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text) as any;
+
+  assertEquals(result.user.name, "Alice");
+  assertEquals(result.user.address.city, "NYC");
+  assertEquals(result.user.address.zip, 10001);
+});
+
+Deno.test("parseToValue - array", () => {
+  const text = "[1, 2, 3, 4, 5]";
+  const result = parseToValue(text);
+
+  assertEquals(result, [1, 2, 3, 4, 5]);
+});
+
+Deno.test("parseToValue - array with mixed types", () => {
+  const text = '[1, "hello", true, null, 3.14, false]';
+  const result = parseToValue(text);
+
+  assertEquals(result, [1, "hello", true, null, 3.14, false]);
+});
+
+Deno.test("parseToValue - nested arrays", () => {
+  const text = "[[1, 2], [3, 4], [5, 6]]";
+  const result = parseToValue(text);
+
+  assertEquals(result, [[1, 2], [3, 4], [5, 6]]);
+});
+
+Deno.test("parseToValue - array of objects", () => {
+  const text = '[{"id": 1, "name": "A"}, {"id": 2, "name": "B"}]';
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text) as any;
+
+  assertEquals(result.length, 2);
+  assertEquals(result[0].id, 1);
+  assertEquals(result[0].name, "A");
+  assertEquals(result[1].id, 2);
+  assertEquals(result[1].name, "B");
+});
+
+Deno.test("parseToValue - string primitive", () => {
+  const text = '"hello world"';
+  const result = parseToValue(text);
+
+  assertEquals(result, "hello world");
+});
+
+Deno.test("parseToValue - string with escape sequences", () => {
+  const text = '"Line 1\\nLine 2\\tTabbed"';
+  const result = parseToValue(text);
+
+  assertEquals(result, "Line 1\nLine 2\tTabbed");
+});
+
+Deno.test("parseToValue - number primitive (integer)", () => {
+  const text = "42";
+  const result = parseToValue(text);
+
+  assertEquals(result, 42);
+});
+
+Deno.test("parseToValue - number primitive (float)", () => {
+  const text = "3.14159";
+  const result = parseToValue(text);
+
+  assertEquals(result, 3.14159);
+});
+
+Deno.test("parseToValue - number primitive (negative)", () => {
+  const text = "-123.45";
+  const result = parseToValue(text);
+
+  assertEquals(result, -123.45);
+});
+
+Deno.test("parseToValue - number primitive (scientific notation)", () => {
+  const text = "1.5e10";
+  const result = parseToValue(text);
+
+  assertEquals(result, 1.5e10);
+});
+
+Deno.test("parseToValue - boolean true", () => {
+  const text = "true";
+  const result = parseToValue(text);
+
+  assertEquals(result, true);
+});
+
+Deno.test("parseToValue - boolean false", () => {
+  const text = "false";
+  const result = parseToValue(text);
+
+  assertEquals(result, false);
+});
+
+Deno.test("parseToValue - null", () => {
+  const text = "null";
+  const result = parseToValue(text);
+
+  assertEquals(result, null);
+});
+
+Deno.test("parseToValue - complex nested structure", () => {
+  const text = `{
+    "users": [
+      {
+        "id": 1,
+        "name": "Alice",
+        "scores": [95, 87, 92],
+        "active": true
+      },
+      {
+        "id": 2,
+        "name": "Bob",
+        "scores": [88, 90, 85],
+        "active": false
+      }
+    ],
+    "metadata": {
+      "total": 2,
+      "version": "1.0",
+      "features": ["auth", "api", "db"]
+    }
+  }`;
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text) as any;
+
+  assertEquals(result.users.length, 2);
+  assertEquals(result.users[0].name, "Alice");
+  assertEquals(result.users[0].scores, [95, 87, 92]);
+  assertEquals(result.users[0].active, true);
+  assertEquals(result.users[1].name, "Bob");
+  assertEquals(result.users[1].active, false);
+  assertEquals(result.metadata.total, 2);
+  assertEquals(result.metadata.version, "1.0");
+  assertEquals(result.metadata.features, ["auth", "api", "db"]);
+});
+
+Deno.test("RootNode.toValue - simple object", () => {
+  const text = '{"name": "Test", "value": 123}';
+  const root = parse(text);
+  // deno-lint-ignore no-explicit-any
+  const result = root.toValue() as any;
+
+  assertEquals(result.name, "Test");
+  assertEquals(result.value, 123);
+});
+
+Deno.test("RootNode.toValue - array", () => {
+  const text = "[1, 2, 3]";
+  const root = parse(text);
+  const result = root.toValue();
+
+  assertEquals(result, [1, 2, 3]);
+});
+
+Deno.test("RootNode.toValue - string", () => {
+  const text = '"hello"';
+  const root = parse(text);
+  const result = root.toValue();
+
+  assertEquals(result, "hello");
+});
+
+Deno.test("RootNode.toValue - matches parseToValue", () => {
+  const text = `{
+    "data": [1, 2, 3],
+    "active": true,
+    "count": null
+  }`;
+
+  // deno-lint-ignore no-explicit-any
+  const resultFromParse = parse(text).toValue() as any;
+  // deno-lint-ignore no-explicit-any
+  const resultFromParseToValue = parseToValue(text) as any;
+
+  // Both should produce the same result
+  assertEquals(resultFromParse.data, resultFromParseToValue.data);
+  assertEquals(resultFromParse.active, resultFromParseToValue.active);
+  assertEquals(resultFromParse.count, resultFromParseToValue.count);
+});
+
+Deno.test("Node.toValue - object node", () => {
+  const text = '{"outer": {"inner": "value"}}';
+  const root = parse(text);
+  const outerNode = root.asObject()?.get("outer")?.value();
+  assertExists(outerNode);
+
+  // deno-lint-ignore no-explicit-any
+  const result = outerNode.toValue() as any;
+  assertEquals(result.inner, "value");
+});
+
+Deno.test("Node.toValue - array node", () => {
+  const text = '{"items": [1, 2, 3]}';
+  const root = parse(text);
+  const itemsNode = root.asObject()?.get("items")?.value();
+  assertExists(itemsNode);
+
+  const result = itemsNode.toValue();
+  assertEquals(result, [1, 2, 3]);
+});
+
+Deno.test("Node.toValue - string node", () => {
+  const text = '{"message": "hello world"}';
+  const root = parse(text);
+  const messageNode = root.asObject()?.get("message")?.value();
+  assertExists(messageNode);
+
+  const result = messageNode.toValue();
+  assertEquals(result, "hello world");
+});
+
+Deno.test("Node.toValue - number node", () => {
+  const text = '{"count": 42}';
+  const root = parse(text);
+  const countNode = root.asObject()?.get("count")?.value();
+  assertExists(countNode);
+
+  const result = countNode.toValue();
+  assertEquals(result, 42);
+});
+
+Deno.test("Node.toValue - boolean node", () => {
+  const text = '{"enabled": true}';
+  const root = parse(text);
+  const enabledNode = root.asObject()?.get("enabled")?.value();
+  assertExists(enabledNode);
+
+  const result = enabledNode.toValue();
+  assertEquals(result, true);
+});
+
+Deno.test("Node.toValue - null node", () => {
+  const text = '{"data": null}';
+  const root = parse(text);
+  const dataNode = root.asObject()?.get("data")?.value();
+  assertExists(dataNode);
+
+  const result = dataNode.toValue();
+  assertEquals(result, null);
+});
+
+Deno.test("parseToValue - empty object", () => {
+  const text = "{}";
+  const result = parseToValue(text);
+
+  // deno-lint-ignore no-explicit-any
+  assertEquals(Object.keys(result as any).length, 0);
+  assertEquals(typeof result, "object");
+});
+
+Deno.test("parseToValue - empty array", () => {
+  const text = "[]";
+  const result = parseToValue(text);
+
+  assertEquals(result, []);
+});
+
+Deno.test("parseToValue - object with null values", () => {
+  const text = '{"a": null, "b": null, "c": 1}';
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text) as any;
+
+  assertEquals(result.a, null);
+  assertEquals(result.b, null);
+  assertEquals(result.c, 1);
+});
+
+Deno.test("parseToValue - unicode strings", () => {
+  const text = '{"emoji": "👍", "chinese": "你好", "math": "∑∫"}';
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text) as any;
+
+  assertEquals(result.emoji, "👍");
+  assertEquals(result.chinese, "你好");
+  assertEquals(result.math, "∑∫");
+});
+
+Deno.test("parseToValue - special number values", () => {
+  const text = '{"zero": 0, "negative": -0, "large": 9007199254740991}';
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text) as any;
+
+  assertEquals(result.zero, 0);
+  assertEquals(result.negative, -0);
+  assertEquals(result.large, 9007199254740991);
 });
