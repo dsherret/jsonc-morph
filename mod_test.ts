@@ -792,6 +792,33 @@ Deno.test("Node - isComment identifies comment nodes", () => {
   assertEquals(hasComment, true);
 });
 
+Deno.test("Node - remove whitespace trivia node", () => {
+  const text = '{"a":1 }';
+  const root = parse(text);
+  const obj = root.asObjectOrThrow();
+
+  const children = obj.children();
+  for (const c of children) {
+    if (c.isWhitespace()) {
+      c.remove();
+    }
+  }
+  assertEquals(root.toString(), '{"a":1}');
+});
+
+Deno.test("Node - remove comment trivia node", () => {
+  const text = `{/* remove me */"a": 1/* remove me */}`;
+  const root = parse(text);
+  const obj = root.asObjectOrThrow();
+  const children = obj.children();
+  for (const c of children) {
+    if (c.isComment()) {
+      c.remove();
+    }
+  }
+  assertEquals(root.toString(), `{"a": 1}`);
+});
+
 Deno.test("RootNode - setValue changes root value", () => {
   const text = "null";
   const root = parse(text);
