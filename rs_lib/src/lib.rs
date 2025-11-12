@@ -443,6 +443,14 @@ pub struct Node {
 
 #[wasm_bindgen]
 impl Node {
+  /// Removes this node from its parent.
+  /// Works for any node kind, including whitespace, comments, tokens, containers, and leaf values.
+  /// After calling this method, the node is detached from the CST and can no longer be used.
+  #[wasm_bindgen(js_name = remove)]
+  pub fn remove(self) {
+    self.inner.remove();
+  }
+
   /// Returns true if this node is a container (object, array, or property).
   /// @returns true if this is a container node
   #[wasm_bindgen(js_name = isContainer)]
