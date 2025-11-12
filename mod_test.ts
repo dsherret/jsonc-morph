@@ -1693,3 +1693,14 @@ Deno.test("parseToValue - special number values", () => {
   assertEquals(result.negative, -0);
   assertEquals(result.large, 9007199254740991);
 });
+
+Deno.test("parseToValue - preserve key order", () => {
+  const text = `{
+    "zebra": 1,
+    "apple": 2,
+    "sauce": 3
+  }`;
+  const result = parseToValue(text);
+
+  assertEquals(Object.keys(result as object), ["zebra", "apple", "sauce"]);
+});

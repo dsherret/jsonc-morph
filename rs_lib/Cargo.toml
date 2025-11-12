@@ -7,9 +7,9 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-jsonc-parser = { version = "0.27.0", features = ["cst", "serde"] }
+jsonc-parser = { version = "0.27.0", features = ["cst", "serde", "preserve_order", "error_unicode_width"] }
 wasm-bindgen = "=0.2.102"
 js-sys = "0.3"
 serde = "1.0"
 serde-wasm-bindgen = "0.6"
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
