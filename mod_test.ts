@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { parse, parseToValue } from "./mod.ts";
+import { parse, parseStrict, parseToValue, parseToValueStrict } from "./mod.ts";
 
 Deno.test("RootNode - parse simple object", () => {
   const text = '{"name": "test", "value": 42}';
@@ -1850,4 +1850,142 @@ Deno.test("parse - strict mode (all options disabled)", () => {
   assertExists(root);
   const obj = root.asObjectOrThrow();
   assertEquals(obj.properties().length, 2);
+});
+
+// parseStrict and parseToValueStrict tests
+
+Deno.test("parseStrict - parses valid JSON", () => {
+  const text = '{"name": "test", "value": 42}';
+  const root = parseStrict(text);
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 2);
+});
+
+Deno.test("parseStrict - rejects comments by default", () => {
+  const text = `{
+    // comment
+    "name": "test"
+  }`;
+  try {
+    parseStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseStrict - rejects trailing commas by default", () => {
+  const text = '{"name": "test",}';
+  try {
+    parseStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseStrict - rejects single-quoted strings by default", () => {
+  const text = "{'name': 'test'}";
+  try {
+    parseStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseStrict - rejects hexadecimal numbers by default", () => {
+  const text = '{"value": 0xFF}';
+  try {
+    parseStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseStrict - rejects unary plus by default", () => {
+  const text = '{"value": +42}';
+  try {
+    parseStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseStrict - rejects missing commas by default", () => {
+  const text = `{
+    "a": 1
+    "b": 2
+  }`;
+  try {
+    parseStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseStrict - can selectively enable comments", () => {
+  const text = `{
+    // comment
+    "name": "test"
+  }`;
+  const root = parseStrict(text, { allowComments: true });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 1);
+});
+
+Deno.test("parseStrict - can selectively enable trailing commas", () => {
+  const text = '{"name": "test",}';
+  const root = parseStrict(text, { allowTrailingCommas: true });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 1);
+});
+
+Deno.test("parseToValueStrict - parses valid JSON", () => {
+  const text = '{"name": "test", "value": 42}';
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValueStrict(text) as any;
+  assertEquals(result.name, "test");
+  assertEquals(result.value, 42);
+});
+
+Deno.test("parseToValueStrict - rejects comments by default", () => {
+  const text = `{
+    // comment
+    "name": "test"
+  }`;
+  try {
+    parseToValueStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseToValueStrict - rejects trailing commas by default", () => {
+  const text = '{"name": "test",}';
+  try {
+    parseToValueStrict(text);
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseToValueStrict - can selectively enable extensions", () => {
+  const text = `{
+    // comment
+    "items": [1, 2, 3,]
+  }`;
+  const result = parseToValueStrict(text, {
+    allowComments: true,
+    allowTrailingCommas: true,
+  }) as { items: number[] };
+  assertEquals(result.items, [1, 2, 3]);
 });
