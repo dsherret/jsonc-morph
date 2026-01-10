@@ -15,7 +15,7 @@ fn throw_error(msg: &str) -> JsValue {
 #[wasm_bindgen]
 extern "C" {
   #[wasm_bindgen(
-    typescript_type = "{ allowComments?: boolean; allowTrailingCommas?: boolean; allowLooseObjectPropertyNames?: boolean; }"
+    typescript_type = "{ allowComments?: boolean; allowTrailingCommas?: boolean; allowLooseObjectPropertyNames?: boolean; allowMissingCommas?: boolean; allowSingleQuotedStrings?: boolean; allowHexadecimalNumbers?: boolean; allowUnaryPlusNumbers?: boolean; }"
   )]
   pub type JsoncParseOptionsObject;
 
@@ -100,10 +100,38 @@ fn parse_options_from_js(obj: &JsValue) -> ParseOptions {
       .and_then(|v| v.as_bool())
       .unwrap_or(defaults.allow_loose_object_property_names);
 
+  let allow_missing_commas =
+    js_sys::Reflect::get(obj, &"allowMissingCommas".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_missing_commas);
+
+  let allow_single_quoted_strings =
+    js_sys::Reflect::get(obj, &"allowSingleQuotedStrings".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_single_quoted_strings);
+
+  let allow_hexadecimal_numbers =
+    js_sys::Reflect::get(obj, &"allowHexadecimalNumbers".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_hexadecimal_numbers);
+
+  let allow_unary_plus_numbers =
+    js_sys::Reflect::get(obj, &"allowUnaryPlusNumbers".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_unary_plus_numbers);
+
   ParseOptions {
     allow_comments,
     allow_trailing_commas,
     allow_loose_object_property_names,
+    allow_missing_commas,
+    allow_single_quoted_strings,
+    allow_hexadecimal_numbers,
+    allow_unary_plus_numbers,
   }
 }
 
