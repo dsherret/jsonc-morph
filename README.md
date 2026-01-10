@@ -6,8 +6,6 @@
 Programmatically edit JSONC in JavaScript.
 
 This is especially useful for making programmatic changes to JSON config files.
-It's not recommended for very large files as this is using
-[jsonc-parser](https://github.com/dprint/jsonc-parser/) via Wasm under the hood.
 
 ## Install
 
