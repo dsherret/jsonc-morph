@@ -1704,3 +1704,150 @@ Deno.test("parseToValue - preserve key order", () => {
 
   assertEquals(Object.keys(result as object), ["zebra", "apple", "sauce"]);
 });
+
+// Parse options tests for new properties
+
+Deno.test("parse - allowMissingCommas option (enabled)", () => {
+  const text = `{
+    "a": 1
+    "b": 2
+    "c": 3
+  }`;
+  const root = parse(text, { allowMissingCommas: true });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 3);
+});
+
+Deno.test("parse - allowMissingCommas option (disabled)", () => {
+  const text = `{
+    "a": 1
+    "b": 2
+  }`;
+  try {
+    parse(text, { allowMissingCommas: false });
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parse - allowSingleQuotedStrings option (enabled)", () => {
+  const text = "{'name': 'test', 'value': 42}";
+  const root = parse(text, { allowSingleQuotedStrings: true });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 2);
+});
+
+Deno.test("parse - allowSingleQuotedStrings option (disabled)", () => {
+  const text = "{'name': 'test'}";
+  try {
+    parse(text, { allowSingleQuotedStrings: false });
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parse - allowHexadecimalNumbers option (enabled)", () => {
+  const text = '{"hex": 0xFF, "dec": 255}';
+  const root = parse(text, { allowHexadecimalNumbers: true });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 2);
+});
+
+Deno.test("parse - allowHexadecimalNumbers option (disabled)", () => {
+  const text = '{"hex": 0xFF}';
+  try {
+    parse(text, { allowHexadecimalNumbers: false });
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parse - allowUnaryPlusNumbers option (enabled)", () => {
+  const text = '{"positive": +42, "negative": -42}';
+  const root = parse(text, { allowUnaryPlusNumbers: true });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 2);
+});
+
+Deno.test("parse - allowUnaryPlusNumbers option (disabled)", () => {
+  const text = '{"positive": +42}';
+  try {
+    parse(text, { allowUnaryPlusNumbers: false });
+    throw new Error("Should have thrown parse error");
+  } catch (error) {
+    assertExists(error);
+  }
+});
+
+Deno.test("parseToValue - allowMissingCommas option", () => {
+  const text = `{
+    "a": 1
+    "b": 2
+  }`;
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text, { allowMissingCommas: true }) as any;
+  assertEquals(result.a, 1);
+  assertEquals(result.b, 2);
+});
+
+Deno.test("parseToValue - allowSingleQuotedStrings option", () => {
+  const text = "{'name': 'John'}";
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text, { allowSingleQuotedStrings: true }) as any;
+  assertEquals(result.name, "John");
+});
+
+Deno.test("parseToValue - allowHexadecimalNumbers option", () => {
+  const text = '{"value": 0xAB}';
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text, { allowHexadecimalNumbers: true }) as any;
+  assertEquals(result.value, 171); // 0xAB = 171
+});
+
+Deno.test("parseToValue - allowUnaryPlusNumbers option", () => {
+  const text = '{"value": +100}';
+  // deno-lint-ignore no-explicit-any
+  const result = parseToValue(text, { allowUnaryPlusNumbers: true }) as any;
+  assertEquals(result.value, 100);
+});
+
+Deno.test("parse - all new options combined", () => {
+  const text = `{
+    'name': 'test'
+    "hex": 0xFF
+    "plus": +42
+  }`;
+  const root = parse(text, {
+    allowMissingCommas: true,
+    allowSingleQuotedStrings: true,
+    allowHexadecimalNumbers: true,
+    allowUnaryPlusNumbers: true,
+  });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 3);
+});
+
+Deno.test("parse - strict mode (all options disabled)", () => {
+  // Standard JSON should still work with all options disabled
+  const text = '{"name": "test", "value": 42}';
+  const root = parse(text, {
+    allowComments: false,
+    allowTrailingCommas: false,
+    allowLooseObjectPropertyNames: false,
+    allowMissingCommas: false,
+    allowSingleQuotedStrings: false,
+    allowHexadecimalNumbers: false,
+    allowUnaryPlusNumbers: false,
+  });
+  assertExists(root);
+  const obj = root.asObjectOrThrow();
+  assertEquals(obj.properties().length, 2);
+});
