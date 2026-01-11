@@ -75,15 +75,15 @@ customize this behaviour by passing options:
 ```ts
 import { parse, parseToValue } from "@david/jsonc-morph";
 
-// Disable specific extensions
+// disable specific extensions
 const root = parse(text, {
-  allowComments: false, // Reject // and /* */ comments
-  allowTrailingCommas: false, // Reject trailing commas in arrays/objects
-  allowSingleQuotedStrings: false, // Reject 'single quoted' strings
-  allowHexadecimalNumbers: false, // Reject 0xFF style numbers
-  allowUnaryPlusNumbers: false, // Reject +42 style numbers
-  allowMissingCommas: false, // Reject missing commas between elements
-  allowLooseObjectPropertyNames: false, // Reject unquoted property names
+  allowComments: false, // reject // and /* */ comments
+  allowTrailingCommas: false, // reject trailing commas in arrays/objects
+  allowSingleQuotedStrings: false, // reject 'single quoted' strings
+  allowHexadecimalNumbers: false, // reject 0xFF style numbers
+  allowUnaryPlusNumbers: false, // reject +42 style numbers
+  allowMissingCommas: false, // reject missing commas between elements
+  allowLooseObjectPropertyNames: false, // reject unquoted property names
 });
 
 // parseToValue accepts the same options
@@ -96,12 +96,12 @@ For strict JSON parsing (only allow JSON), use `parseStrict` or
 ```ts
 import { parseStrict, parseToValueStrict } from "@david/jsonc-morph";
 
-// All extensions disabled by default
+// all extensions disabled by default
 const root = parseStrict('{"name": "test"}');
 
-// Selectively enable specific extensions
+// selectively enable specific extensions
 const rootWithComments = parseStrict(text, { allowComments: true });
 
-// Same for parseToValueStrict
+// same for `parseToValueStrict`
 const value = parseToValueStrict('{"name": "test"}');
 ```

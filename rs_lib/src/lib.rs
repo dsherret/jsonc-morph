@@ -14,19 +14,38 @@ fn throw_error(msg: &str) -> JsValue {
 
 #[wasm_bindgen]
 extern "C" {
-  #[wasm_bindgen(
-    typescript_type = "{ allowComments?: boolean; allowTrailingCommas?: boolean; allowLooseObjectPropertyNames?: boolean; allowMissingCommas?: boolean; allowSingleQuotedStrings?: boolean; allowHexadecimalNumbers?: boolean; allowUnaryPlusNumbers?: boolean; }"
-  )]
+  #[wasm_bindgen(typescript_type = "ParseOptions")]
   pub type JsoncParseOptionsObject;
 
-  #[wasm_bindgen(
-    typescript_type = "string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }"
-  )]
+  #[wasm_bindgen(typescript_type = "JsonValue")]
   pub type JsonValue;
 }
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
+/**
+ * Options for parsing JSONC.
+ *
+ * When used with `parse`/`parseToValue`, all options default to `true` (permissive).
+ * When used with `parseStrict`/`parseToValueStrict`, all options default to `false` (strict).
+ */
+export interface ParseOptions {
+  /** Allow comments. */
+  allowComments?: boolean;
+  /** Allow trailing commas. */
+  allowTrailingCommas?: boolean;
+  /** Allow loose object property names (unquoted keys). */
+  allowLooseObjectPropertyNames?: boolean;
+  /** Allow missing commas between elements. */
+  allowMissingCommas?: boolean;
+  /** Allow single-quoted strings. */
+  allowSingleQuotedStrings?: boolean;
+  /** Allow hexadecimal numbers (e.g., 0xFF). */
+  allowHexadecimalNumbers?: boolean;
+  /** Allow unary plus on numbers (e.g., +42). */
+  allowUnaryPlusNumbers?: boolean;
+}
+
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 "#;
 

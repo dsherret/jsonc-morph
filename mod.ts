@@ -9,6 +9,7 @@ export {
   ObjectProp,
   ObjectPropName,
   parse,
+  type ParseOptions,
   parseToValue,
   RootNode,
   StringLit,
@@ -18,29 +19,18 @@ export {
 import {
   type JsonValue,
   parse,
+  type ParseOptions,
   parseToValue,
   type RootNode,
 } from "./lib/rs_lib.js";
 
-/** Options for strict JSON parsing (all JSONC extensions disabled by default). */
-export interface ParseStrictOptions {
-  /** Allow comments (defaults to `false` in strict mode). */
-  allowComments?: boolean;
-  /** Allow trailing commas (defaults to `false` in strict mode). */
-  allowTrailingCommas?: boolean;
-  /** Allow loose object property names (defaults to `false` in strict mode). */
-  allowLooseObjectPropertyNames?: boolean;
-  /** Allow missing commas (defaults to `false` in strict mode). */
-  allowMissingCommas?: boolean;
-  /** Allow single-quoted strings (defaults to `false` in strict mode). */
-  allowSingleQuotedStrings?: boolean;
-  /** Allow hexadecimal numbers (defaults to `false` in strict mode). */
-  allowHexadecimalNumbers?: boolean;
-  /** Allow unary plus on numbers (defaults to `false` in strict mode). */
-  allowUnaryPlusNumbers?: boolean;
-}
+/**
+ * Options for strict JSON parsing (all JSONC extensions disabled by default).
+ * @deprecated Use `ParseOptions` instead - this is an alias for backwards compatibility.
+ */
+export type ParseStrictOptions = ParseOptions;
 
-const STRICT_DEFAULTS: Required<ParseStrictOptions> = {
+const STRICT_DEFAULTS: Required<ParseOptions> = {
   allowComments: false,
   allowTrailingCommas: false,
   allowLooseObjectPropertyNames: false,
@@ -60,7 +50,7 @@ const STRICT_DEFAULTS: Required<ParseStrictOptions> = {
  */
 export function parseStrict(
   text: string,
-  options?: ParseStrictOptions,
+  options?: ParseOptions,
 ): RootNode {
   return parse(text, { ...STRICT_DEFAULTS, ...options });
 }
@@ -76,7 +66,7 @@ export function parseStrict(
  */
 export function parseToValueStrict(
   text: string,
-  options?: ParseStrictOptions,
+  options?: ParseOptions,
 ): JsonValue {
   return parseToValue(text, { ...STRICT_DEFAULTS, ...options });
 }
