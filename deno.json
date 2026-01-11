@@ -11,13 +11,14 @@
       "Cargo.lock",
       "Cargo.toml",
       "deno.lock",
+      "target",
       "rust-toolchain.toml",
       "**/*_test.ts"
     ]
   },
   "tasks": {
     "build:npm": "deno run -A scripts/build_npm.ts",
-    "build": "deno run -A jsr:@deno/wasmbuild@0.19.3 --inline && deno run -A scripts/fix_types.ts"
+    "build": "deno run -A jsr:@deno/wasmbuild@0.21.0 --inline && deno run -A scripts/fix_types.ts"
   },
   "imports": {
     "@deno/dnt": "jsr:@deno/dnt@^0.42.3",
