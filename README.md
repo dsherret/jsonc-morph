@@ -3,7 +3,7 @@
 [![JSR](https://jsr.io/badges/@david/jsonc-morph)](https://jsr.io/@david/jsonc-morph)
 [![npm version](https://badge.fury.io/js/jsonc-morph.svg)](https://badge.fury.io/js/jsonc-morph)
 
-Programmatically edit JSONC in JavaScript.
+Parse and edit JSONC in JavaScript.
 
 This is especially useful for making programmatic changes to JSON config files.
 
