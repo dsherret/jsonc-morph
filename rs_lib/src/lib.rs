@@ -85,7 +85,7 @@ pub fn parse_to_value(
 
   // Use the more efficient parse_to_serde_value API from jsonc_parser
   // This skips building the full CST and directly produces a serde_json::Value
-  let serde_value = jsonc_parser::parse_to_serde_value(text, &parse_options)
+  let serde_value: Option<serde_json::Value> = jsonc_parser::parse_to_serde_value(text, &parse_options)
     .map_err(|e| throw_error(&format!("Parse error: {}", e)))?;
 
   // Convert serde_json::Value to JsValue using serde-wasm-bindgen with custom serializer
