@@ -29,8 +29,11 @@ extern "C" {
   #[wasm_bindgen(typescript_type = "ElementComparator")]
   pub type ElementComparator;
 
-  #[wasm_bindgen(typescript_type = "SortOptions")]
-  pub type SortOptionsObject;
+  #[wasm_bindgen(typescript_type = "SortOptions<ObjectProp>")]
+  pub type PropertySortOptions;
+
+  #[wasm_bindgen(typescript_type = "SortOptions<Node>")]
+  pub type ElementSortOptions;
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -67,7 +70,7 @@ export type PropertyComparator = (a: ObjectProp, b: ObjectProp) => number;
 export type ElementComparator = (a: Node, b: Node) => number;
 
 /** Options for sorting an object's properties or an array's elements. */
-export interface SortOptions {
+export interface SortOptions<TMember = Node> {
   /**
    * Leave the comments that head a group where they were written.
    *
@@ -78,9 +81,12 @@ export interface SortOptions {
    * Pass a function for finer control: it is handed a member and the comments written above it,
    * and returns how many of them, counting from the top, stay where they were written. The rest
    * travel with the member. Use it when a block is partly a heading and partly a note about the
-   * member beneath it.
+   * member beneath it. Each comment is a `Node`; read its text with `toString()`.
+   *
+   * The function must not add or remove members. Doing so leaves the sort with nothing safe to
+   * write back, so it gives up and leaves the container as the function left it.
    */
-  pinCommentHeaders?: boolean | ((member: Node, comments: Node[]) => number);
+  pinCommentHeaders?: boolean | ((member: TMember, comments: Node[]) => number);
   /**
    * Sort each run of members between blank lines on its own, so that no member crosses one.
    *
@@ -256,33 +262,66 @@ fn pinned_comment_count(
 /// The comparing is done up front and on its own, so that a comparator that throws leaves the
 /// document exactly as it was rather than half sorted. The caller then applies the order as a key,
 /// which keeps the sort itself consistent whatever the comparator answered.
+///
+/// The merging below is done by hand rather than with [`slice::sort_by`] because a comparator that
+/// contradicts itself is ordinary in JavaScript -- `(a, b) => a.name > b.name` is a common way to
+/// write one -- and Rust's sort answers that by panicking, which crosses the wasm boundary as a
+/// trap that takes the whole module down. A merge leaves such a comparator with an order nobody
+/// promised anything about, which is what `Array.prototype.sort` does too.
 fn comparator_order(
   compare: &js_sys::Function,
   values: &[JsValue],
 ) -> Result<Vec<usize>, JsValue> {
-  let mut error: Option<JsValue> = None;
   let mut order = (0..values.len()).collect::<Vec<_>>();
-  order.sort_by(|&left, &right| {
-    if error.is_some() {
-      return Ordering::Equal;
-    }
-    match compare.call2(&JsValue::NULL, &values[left], &values[right]) {
-      Ok(result) => match result.as_f64() {
-        Some(answer) if answer < 0.0 => Ordering::Less,
-        Some(answer) if answer > 0.0 => Ordering::Greater,
-        // NaN and undefined mean "no opinion", the same as Array.prototype.sort takes them
-        _ => Ordering::Equal,
-      },
-      Err(err) => {
-        error = Some(err);
-        Ordering::Equal
+  let mut merged = order.clone();
+  let mut width = 1;
+  while width < order.len() {
+    let mut start = 0;
+    while start < order.len() {
+      let middle = (start + width).min(order.len());
+      let end = (start + 2 * width).min(order.len());
+      let (mut left, mut right, mut at) = (start, middle, start);
+      while left < middle || right < end {
+        // the left run wins a tie, which is what keeps the sort stable
+        let take_left = if left >= middle {
+          false
+        } else if right >= end {
+          true
+        } else {
+          compare_values(compare, values, order[left], order[right])?
+            != Ordering::Greater
+        };
+        merged[at] = if take_left {
+          left += 1;
+          order[left - 1]
+        } else {
+          right += 1;
+          order[right - 1]
+        };
+        at += 1;
       }
+      start = end;
     }
-  });
-  match error {
-    Some(err) => Err(err),
-    None => Ok(order),
+    std::mem::swap(&mut order, &mut merged);
+    width *= 2;
   }
+  Ok(order)
+}
+
+/// Asks the comparator which of two values comes first, reading its answer the way
+/// `Array.prototype.sort` does.
+fn compare_values(
+  compare: &js_sys::Function,
+  values: &[JsValue],
+  left: usize,
+  right: usize,
+) -> Result<Ordering, JsValue> {
+  let result = compare.call2(&JsValue::NULL, &values[left], &values[right])?;
+  // anything that isn't a number is read as one, so `true` is 1 and `undefined` is NaN
+  let answer = js_sys::Number::from(result).value_of();
+  // a comparator with no opinion, or none that survived being turned into a number, leaves the
+  // two where they were
+  Ok(answer.partial_cmp(&0.0).unwrap_or(Ordering::Equal))
 }
 
 /// Turns an order over positions into the rank of each node, looked up by where it sits among its
@@ -1374,10 +1413,17 @@ impl JsonObject {
   pub fn sort_properties(
     &self,
     compare: Option<PropertyComparator>,
-    options: Option<SortOptionsObject>,
+    options: Option<PropertySortOptions>,
   ) -> Result<(), JsValue> {
     let options = options.map(JsValue::from).unwrap_or(JsValue::UNDEFINED);
     let options = &options;
+    if let Some(compare) = &compare
+      && !JsValue::from(compare).is_function()
+    {
+      return Err(throw_error(
+        "Expected a comparator function; pass sort options as the second argument",
+      ));
+    }
     let Some(compare) = compare else {
       self.sort(options).by_key(|prop| prop.decoded_name());
       return Ok(());
@@ -1662,6 +1708,13 @@ impl ObjectProp {
   #[wasm_bindgen(js_name = hasBlankLineBefore)]
   pub fn has_blank_line_before(&self) -> bool {
     self.inner.has_blank_line_before()
+  }
+
+  /// Returns the property exactly as it was written, trivia and all.
+  /// @returns The JSONC text of this property
+  #[wasm_bindgen(js_name = toString)]
+  pub fn to_string_output(&self) -> String {
+    self.inner.to_string()
   }
 
   /// Returns the property name with any escapes in it resolved.
@@ -2025,10 +2078,17 @@ impl JsonArray {
   pub fn sort_elements(
     &self,
     compare: Option<ElementComparator>,
-    options: Option<SortOptionsObject>,
+    options: Option<ElementSortOptions>,
   ) -> Result<(), JsValue> {
     let options = options.map(JsValue::from).unwrap_or(JsValue::UNDEFINED);
     let options = &options;
+    if let Some(compare) = &compare
+      && !JsValue::from(compare).is_function()
+    {
+      return Err(throw_error(
+        "Expected a comparator function; pass sort options as the second argument",
+      ));
+    }
     let Some(compare) = compare else {
       self.sort(options).by_key(|element| element.to_string());
       return Ok(());

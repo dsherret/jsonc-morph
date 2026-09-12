@@ -2374,3 +2374,96 @@ Deno.test("JsonObject - pinCommentHeaders function is handed the comments above 
 
   assertEquals(seen, [[], ["// section", "// about a"]]);
 });
+
+Deno.test("JsonObject - a comparator that contradicts itself is survivable", () => {
+  // Rust's own sort answers a comparator like this by panicking, which through wasm would take
+  // the whole module down. JavaScript comparators contradict themselves all the time.
+  const root = parse(
+    `{${Array.from({ length: 26 }, (_, i) => `"k${i}": ${i}`).join(", ")}}`,
+  );
+  root.asObjectOrThrow().sortProperties(() => (Math.random() < 0.5 ? -1 : 1));
+
+  // whatever order it landed in, the document still holds the same 26 properties
+  const value = root.toValue() as Record<string, number>;
+  assertEquals(Object.keys(value).length, 26);
+});
+
+Deno.test("JsonObject - a comparator returning a boolean is read as a number", () => {
+  const root = parse(`{ "b": 2, "a": 1, "c": 3 }`);
+  // `Array.prototype.sort` applies ToNumber, so `true` is 1 and `false` is 0
+  root.asObjectOrThrow().sortProperties((a, b) =>
+    (a.decodedName() ?? "") > (b.decodedName() ?? "") as unknown as number
+  );
+
+  assertEquals(root.toString(), `{ "a": 1, "b": 2, "c": 3 }`);
+});
+
+Deno.test("ObjectProp - toString returns the property as written", () => {
+  const root = parse(`{ "a"  :  1 }`);
+  const prop = root.asObjectOrThrow().properties()[0];
+
+  assertEquals(prop.toString(), `"a"  :  1`);
+});
+
+Deno.test("JsonArray - withinGroups sorts each run on its own", () => {
+  const root = parse(`[
+  30,
+
+  // small ones
+  20,
+  10
+]`);
+  root.asArrayOrThrow().sortElements(
+    (a, b) => Number(a.toString()) - Number(b.toString()),
+    { withinGroups: true },
+  );
+
+  assertEquals(
+    root.toString(),
+    `[
+  30,
+
+  // small ones
+  10,
+  20
+]`,
+  );
+});
+
+Deno.test("JsonObject - withinGroups and pinCommentHeaders together", () => {
+  const root = parse(`{
+  "m": 1,
+
+  // section
+  "z": 2,
+  // about y
+  "y": 3
+}`);
+  root.asObjectOrThrow().sortProperties(undefined, {
+    withinGroups: true,
+    pinCommentHeaders: true,
+  });
+
+  // the group boundary holds "// section" in place and "// about y" travels with its property
+  assertEquals(
+    root.toString(),
+    `{
+  "m": 1,
+
+  // section
+  // about y
+  "y": 3,
+  "z": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - options passed where the comparator goes is a clear error", () => {
+  const root = parse(`{ "b": 2, "a": 1 }`);
+  assertThrows(
+    // deno-lint-ignore no-explicit-any
+    () => root.asObjectOrThrow().sortProperties({ withinGroups: true } as any),
+    Error,
+    "Expected a comparator function",
+  );
+});
