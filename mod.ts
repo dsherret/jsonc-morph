@@ -14,6 +14,7 @@ export {
   parseToValue,
   type PropertyComparator,
   RootNode,
+  type SortOptions,
   StringLit,
   WordLit,
 } from "./lib/rs_lib.js";

@@ -2195,3 +2195,182 @@ Deno.test("ObjectProp - decodedName resolves escapes", () => {
 
   assertEquals(prop.decodedName(), "a");
 });
+
+Deno.test("JsonObject - sortProperties can keep a comment header in place", () => {
+  const text = `{
+  "prop": 1,
+
+  // section
+  "prop2": 2,
+  "prop1": 1
+}`;
+
+  // by default the heading is written above prop2, so it travels with it
+  const drifted = parse(text);
+  drifted.asObjectOrThrow().sortProperties();
+  assertEquals(
+    drifted.toString(),
+    `{
+  "prop": 1,
+  "prop1": 1,
+
+  // section
+  "prop2": 2
+}`,
+  );
+
+  const kept = parse(text);
+  kept.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: true,
+  });
+  assertEquals(
+    kept.toString(),
+    `{
+  "prop": 1,
+
+  // section
+  "prop1": 1,
+  "prop2": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders leaves an attached comment travelling", () => {
+  const root = parse(`{
+  // about b
+  "b": 2,
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: true,
+  });
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  // about b
+  "b": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders works with a comparator", () => {
+  const root = parse(`{
+  "c": 3,
+
+  // section
+  "b": 2,
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties(
+    (a, b) => (a.decodedName() ?? "").localeCompare(b.decodedName() ?? ""),
+    { pinCommentHeaders: true },
+  );
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+
+  // section
+  "b": 2,
+  "c": 3
+}`,
+  );
+});
+
+// the option pins the heading; it does not stop elements sorting past the blank line
+Deno.test("JsonArray - sortElements takes the same option", () => {
+  const root = parse(`[
+  3,
+
+  // section
+  2,
+  1
+]`);
+  root.asArrayOrThrow().sortElements(undefined, {
+    pinCommentHeaders: true,
+  });
+
+  assertEquals(
+    root.toString(),
+    `[
+  1,
+
+  // section
+  2,
+  3
+]`,
+  );
+});
+
+Deno.test("JsonObject - withinGroups sorts each run on its own", () => {
+  const root = parse(`{
+  "m": 1,
+
+  // section
+  "z": 2,
+  "a": 3
+}`);
+  root.asObjectOrThrow().sortProperties(undefined, { withinGroups: true });
+
+  // "m" is a group of its own, so it stays above the blank line
+  assertEquals(
+    root.toString(),
+    `{
+  "m": 1,
+
+  // section
+  "a": 3,
+  "z": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders takes a function for partial headers", () => {
+  const root = parse(`{
+  "c": 3,
+
+  // section
+  // about b
+  "b": 2,
+  "a": 1
+}`);
+  // only the first comment heads the group; the rest belong to the property
+  root.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: (member, _comments) =>
+      member.hasBlankLineBefore() ? 1 : 0,
+  });
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+
+  // section
+  // about b
+  "b": 2,
+  "c": 3
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders function is handed the comments above the member", () => {
+  const root = parse(`{
+  "b": 2,
+
+  // section
+  // about a
+  "a": 1
+}`);
+  const seen: string[][] = [];
+  root.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: (_member, comments) => {
+      seen.push(comments.map((c) => c.toString()));
+      return 0;
+    },
+  });
+
+  assertEquals(seen, [[], ["// section", "// about a"]]);
+});

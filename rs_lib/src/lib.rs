@@ -28,6 +28,9 @@ extern "C" {
 
   #[wasm_bindgen(typescript_type = "ElementComparator")]
   pub type ElementComparator;
+
+  #[wasm_bindgen(typescript_type = "SortOptions")]
+  pub type SortOptionsObject;
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -62,6 +65,30 @@ export type PropertyComparator = (a: ObjectProp, b: ObjectProp) => number;
 
 /** Compares two array elements, like the callback `Array.prototype.sort` takes. */
 export type ElementComparator = (a: Node, b: Node) => number;
+
+/** Options for sorting an object's properties or an array's elements. */
+export interface SortOptions {
+  /**
+   * Leave the comments that head a group where they were written.
+   *
+   * `true` pins every comment above a member that has a blank line above it, which reads as a
+   * heading for the members beneath rather than as a description of the first of them. A comment
+   * written flush against its member still travels with that member.
+   *
+   * Pass a function for finer control: it is handed a member and the comments written above it,
+   * and returns how many of them, counting from the top, stay where they were written. The rest
+   * travel with the member. Use it when a block is partly a heading and partly a note about the
+   * member beneath it.
+   */
+  pinCommentHeaders?: boolean | ((member: Node, comments: Node[]) => number);
+  /**
+   * Sort each run of members between blank lines on its own, so that no member crosses one.
+   *
+   * A blank line, and whatever was written under it, is the boundary between two groups, and a
+   * boundary stays where it is.
+   */
+  withinGroups?: boolean;
+}
 "#;
 
 /// Parses a JSONC (JSON with Comments) string into a concrete syntax tree.
@@ -177,6 +204,51 @@ fn js_value_to_cst_input(value: &JsValue) -> Result<CstInputValue, JsValue> {
 
   // Convert serde_json::Value to CstInputValue
   Ok(convert_serde_to_cst_input(serde_value))
+}
+
+/// Reads a sort option off the options object, if one was given at all.
+fn sort_option(options: &JsValue, name: &str) -> Option<JsValue> {
+  if options.is_undefined() || options.is_null() {
+    return None;
+  }
+  js_sys::Reflect::get(options, &JsValue::from_str(name))
+    .ok()
+    .filter(|value| !value.is_undefined() && !value.is_null())
+}
+
+/// Whether the sort was asked to sort each run of members between blank lines on its own.
+fn sorts_within_groups(options: &JsValue) -> bool {
+  sort_option(options, "withinGroups")
+    .map(|value| value.is_truthy())
+    .unwrap_or(false)
+}
+
+/// Asks a JavaScript rule how many of the comments above a member stay where they were written.
+///
+/// The rule is handed the member and those comments, the same as the Rust API hands them over.
+fn pinned_comment_count(
+  rule: &JsValue,
+  element: &JsValue,
+  comments: &[cst::CstComment],
+) -> usize {
+  let Some(rule) = rule.dyn_ref::<js_sys::Function>() else {
+    return 0;
+  };
+  let js_comments = comments
+    .iter()
+    .map(|comment| {
+      JsValue::from(Node {
+        inner: JsoncCstNode::Leaf(CstLeafNode::Comment(comment.clone())),
+      })
+    })
+    .collect::<js_sys::Array>();
+  rule
+    .call2(&JsValue::NULL, element, &js_comments)
+    .ok()
+    .and_then(|count| count.as_f64())
+    .filter(|count| *count > 0.0)
+    .map(|count| count as usize)
+    .unwrap_or(0)
 }
 
 /// Works out the order a JavaScript comparator puts some nodes in.
@@ -1050,6 +1122,13 @@ impl Node {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
   }
 
+  /// Returns whether a blank line separates this from whatever was written before it.
+  /// @returns true if a blank line precedes it
+  #[wasm_bindgen(js_name = hasBlankLineBefore)]
+  pub fn has_blank_line_before(&self) -> bool {
+    self.inner.has_blank_line_before()
+  }
+
   /// Returns the node exactly as it was written, trivia and all.
   /// @returns The JSONC text of this node
   #[wasm_bindgen(js_name = toString)]
@@ -1262,6 +1341,26 @@ impl JsonObject {
     Ok(ObjectProp { inner: prop })
   }
 
+  fn sort<'a>(&'a self, options: &'a JsValue) -> cst::PropertySort<'a> {
+    let mut sort = self.inner.sort_properties();
+    match sort_option(options, "pinCommentHeaders") {
+      Some(rule) if rule.is_function() => {
+        sort = sort.pin_comment_headers_with(move |prop, comments| {
+          let element = JsValue::from(ObjectProp {
+            inner: prop.clone(),
+          });
+          pinned_comment_count(&rule, &element, comments)
+        })
+      }
+      Some(rule) if rule.is_truthy() => sort = sort.pin_comment_headers(),
+      _ => {}
+    }
+    if sorts_within_groups(options) {
+      sort = sort.within_groups();
+    }
+    sort
+  }
+
   /// Sorts the properties of the object.
   ///
   /// What was written with a property travels with it: the comments and blank lines above it, and
@@ -1275,11 +1374,12 @@ impl JsonObject {
   pub fn sort_properties(
     &self,
     compare: Option<PropertyComparator>,
+    options: Option<SortOptionsObject>,
   ) -> Result<(), JsValue> {
+    let options = options.map(JsValue::from).unwrap_or(JsValue::UNDEFINED);
+    let options = &options;
     let Some(compare) = compare else {
-      self
-        .inner
-        .sort_properties_by_key(|prop| prop.decoded_name());
+      self.sort(options).by_key(|prop| prop.decoded_name());
       return Ok(());
     };
     let props = self.inner.properties();
@@ -1296,8 +1396,8 @@ impl JsonObject {
       props.iter().map(|p| p.child_index()).collect::<Vec<_>>();
     let ranks = ranks_by_child_index(&order, &child_indexes);
     self
-      .inner
-      .sort_properties_by_key(|prop| ranks.get(&prop.child_index()).copied());
+      .sort(options)
+      .by_key(|prop| ranks.get(&prop.child_index()).copied());
     Ok(())
   }
 
@@ -1555,6 +1655,13 @@ impl ObjectProp {
     self
       .name()
       .ok_or_else(|| throw_error("Expected a property name, but found none"))
+  }
+
+  /// Returns whether a blank line separates this from whatever was written before it.
+  /// @returns true if a blank line precedes it
+  #[wasm_bindgen(js_name = hasBlankLineBefore)]
+  pub fn has_blank_line_before(&self) -> bool {
+    self.inner.has_blank_line_before()
   }
 
   /// Returns the property name with any escapes in it resolved.
@@ -1885,6 +1992,26 @@ impl JsonArray {
     Ok(Node { inner: node })
   }
 
+  fn sort<'a>(&'a self, options: &'a JsValue) -> cst::ElementSort<'a> {
+    let mut sort = self.inner.sort_elements();
+    match sort_option(options, "pinCommentHeaders") {
+      Some(rule) if rule.is_function() => {
+        sort = sort.pin_comment_headers_with(move |element, comments| {
+          let element = JsValue::from(Node {
+            inner: element.clone(),
+          });
+          pinned_comment_count(&rule, &element, comments)
+        })
+      }
+      Some(rule) if rule.is_truthy() => sort = sort.pin_comment_headers(),
+      _ => {}
+    }
+    if sorts_within_groups(options) {
+      sort = sort.within_groups();
+    }
+    sort
+  }
+
   /// Sorts the elements of the array.
   ///
   /// What was written with an element travels with it: the comments and blank lines above it, and
@@ -1898,11 +2025,12 @@ impl JsonArray {
   pub fn sort_elements(
     &self,
     compare: Option<ElementComparator>,
+    options: Option<SortOptionsObject>,
   ) -> Result<(), JsValue> {
+    let options = options.map(JsValue::from).unwrap_or(JsValue::UNDEFINED);
+    let options = &options;
     let Some(compare) = compare else {
-      self
-        .inner
-        .sort_elements_by_key(|element| element.to_string());
+      self.sort(options).by_key(|element| element.to_string());
       return Ok(());
     };
     let elements = self.inner.elements();
@@ -1920,9 +2048,9 @@ impl JsonArray {
       .map(|element| element.child_index())
       .collect::<Vec<_>>();
     let ranks = ranks_by_child_index(&order, &child_indexes);
-    self.inner.sort_elements_by_key(|element| {
-      ranks.get(&element.child_index()).copied()
-    });
+    self
+      .sort(options)
+      .by_key(|element| ranks.get(&element.child_index()).copied());
     Ok(())
   }
 
