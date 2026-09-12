@@ -1,5 +1,6 @@
 export {
   BooleanLit,
+  type ElementComparator,
   JsonArray,
   JsonObject,
   type JsonValue,
@@ -11,7 +12,9 @@ export {
   parse,
   type ParseOptions,
   parseToValue,
+  type PropertyComparator,
   RootNode,
+  type SortOptions,
   StringLit,
   WordLit,
 } from "./lib/rs_lib.js";

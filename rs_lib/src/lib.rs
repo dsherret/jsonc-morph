@@ -1,3 +1,6 @@
+use std::cmp::Ordering;
+use std::collections::HashMap;
+
 use js_sys::JsString;
 use jsonc_parser::ParseOptions;
 use jsonc_parser::cst;
@@ -19,6 +22,18 @@ extern "C" {
 
   #[wasm_bindgen(typescript_type = "JsonValue")]
   pub type JsonValue;
+
+  #[wasm_bindgen(typescript_type = "PropertyComparator")]
+  pub type PropertyComparator;
+
+  #[wasm_bindgen(typescript_type = "ElementComparator")]
+  pub type ElementComparator;
+
+  #[wasm_bindgen(typescript_type = "SortOptions<ObjectProp>")]
+  pub type PropertySortOptions;
+
+  #[wasm_bindgen(typescript_type = "SortOptions<Node>")]
+  pub type ElementSortOptions;
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -47,6 +62,39 @@ export interface ParseOptions {
 }
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+/** Compares two object properties, like the callback `Array.prototype.sort` takes. */
+export type PropertyComparator = (a: ObjectProp, b: ObjectProp) => number;
+
+/** Compares two array elements, like the callback `Array.prototype.sort` takes. */
+export type ElementComparator = (a: Node, b: Node) => number;
+
+/** Options for sorting an object's properties or an array's elements. */
+export interface SortOptions<TMember = Node> {
+  /**
+   * Leave the comments that head a group where they were written.
+   *
+   * `true` pins every comment above a member that has a blank line above it, which reads as a
+   * heading for the members beneath rather than as a description of the first of them. A comment
+   * written flush against its member still travels with that member.
+   *
+   * Pass a function for finer control: it is handed a member and the comments written above it,
+   * and returns how many of them, counting from the top, stay where they were written. The rest
+   * travel with the member. Use it when a block is partly a heading and partly a note about the
+   * member beneath it. Each comment is a `Node`; read its text with `toString()`.
+   *
+   * The function must not add or remove members. Doing so leaves the sort with nothing safe to
+   * write back, so it gives up and leaves the container as the function left it.
+   */
+  pinCommentHeaders?: boolean | ((member: TMember, comments: Node[]) => number);
+  /**
+   * Sort each run of members between blank lines on its own, so that no member crosses one.
+   *
+   * A blank line, and whatever was written under it, is the boundary between two groups, and a
+   * boundary stays where it is.
+   */
+  withinGroups?: boolean;
+}
 "#;
 
 /// Parses a JSONC (JSON with Comments) string into a concrete syntax tree.
@@ -162,6 +210,131 @@ fn js_value_to_cst_input(value: &JsValue) -> Result<CstInputValue, JsValue> {
 
   // Convert serde_json::Value to CstInputValue
   Ok(convert_serde_to_cst_input(serde_value))
+}
+
+/// Reads a sort option off the options object, if one was given at all.
+fn sort_option(options: &JsValue, name: &str) -> Option<JsValue> {
+  if options.is_undefined() || options.is_null() {
+    return None;
+  }
+  js_sys::Reflect::get(options, &JsValue::from_str(name))
+    .ok()
+    .filter(|value| !value.is_undefined() && !value.is_null())
+}
+
+/// Whether the sort was asked to sort each run of members between blank lines on its own.
+fn sorts_within_groups(options: &JsValue) -> bool {
+  sort_option(options, "withinGroups")
+    .map(|value| value.is_truthy())
+    .unwrap_or(false)
+}
+
+/// Asks a JavaScript rule how many of the comments above a member stay where they were written.
+///
+/// The rule is handed the member and those comments, the same as the Rust API hands them over.
+fn pinned_comment_count(
+  rule: &JsValue,
+  element: &JsValue,
+  comments: &[cst::CstComment],
+) -> usize {
+  let Some(rule) = rule.dyn_ref::<js_sys::Function>() else {
+    return 0;
+  };
+  let js_comments = comments
+    .iter()
+    .map(|comment| {
+      JsValue::from(Node {
+        inner: JsoncCstNode::Leaf(CstLeafNode::Comment(comment.clone())),
+      })
+    })
+    .collect::<js_sys::Array>();
+  rule
+    .call2(&JsValue::NULL, element, &js_comments)
+    .ok()
+    .and_then(|count| count.as_f64())
+    .filter(|count| *count > 0.0)
+    .map(|count| count as usize)
+    .unwrap_or(0)
+}
+
+/// Works out the order a JavaScript comparator puts some nodes in.
+///
+/// The comparing is done up front and on its own, so that a comparator that throws leaves the
+/// document exactly as it was rather than half sorted. The caller then applies the order as a key,
+/// which keeps the sort itself consistent whatever the comparator answered.
+///
+/// The merging below is done by hand rather than with [`slice::sort_by`] because a comparator that
+/// contradicts itself is ordinary in JavaScript -- `(a, b) => a.name > b.name` is a common way to
+/// write one -- and Rust's sort answers that by panicking, which crosses the wasm boundary as a
+/// trap that takes the whole module down. A merge leaves such a comparator with an order nobody
+/// promised anything about, which is what `Array.prototype.sort` does too.
+fn comparator_order(
+  compare: &js_sys::Function,
+  values: &[JsValue],
+) -> Result<Vec<usize>, JsValue> {
+  let mut order = (0..values.len()).collect::<Vec<_>>();
+  let mut merged = order.clone();
+  let mut width = 1;
+  while width < order.len() {
+    let mut start = 0;
+    while start < order.len() {
+      let middle = (start + width).min(order.len());
+      let end = (start + 2 * width).min(order.len());
+      let (mut left, mut right, mut at) = (start, middle, start);
+      while left < middle || right < end {
+        // the left run wins a tie, which is what keeps the sort stable
+        let take_left = if left >= middle {
+          false
+        } else if right >= end {
+          true
+        } else {
+          compare_values(compare, values, order[left], order[right])?
+            != Ordering::Greater
+        };
+        merged[at] = if take_left {
+          left += 1;
+          order[left - 1]
+        } else {
+          right += 1;
+          order[right - 1]
+        };
+        at += 1;
+      }
+      start = end;
+    }
+    std::mem::swap(&mut order, &mut merged);
+    width *= 2;
+  }
+  Ok(order)
+}
+
+/// Asks the comparator which of two values comes first, reading its answer the way
+/// `Array.prototype.sort` does.
+fn compare_values(
+  compare: &js_sys::Function,
+  values: &[JsValue],
+  left: usize,
+  right: usize,
+) -> Result<Ordering, JsValue> {
+  let result = compare.call2(&JsValue::NULL, &values[left], &values[right])?;
+  // anything that isn't a number is read as one, so `true` is 1 and `undefined` is NaN
+  let answer = js_sys::Number::from(result).value_of();
+  // a comparator with no opinion, or none that survived being turned into a number, leaves the
+  // two where they were
+  Ok(answer.partial_cmp(&0.0).unwrap_or(Ordering::Equal))
+}
+
+/// Turns an order over positions into the rank of each node, looked up by where it sits among its
+/// siblings, which is what identifies a node while nothing has moved yet.
+fn ranks_by_child_index(
+  order: &[usize],
+  child_indexes: &[usize],
+) -> HashMap<usize, usize> {
+  order
+    .iter()
+    .enumerate()
+    .map(|(rank, &position)| (child_indexes[position], rank))
+    .collect()
 }
 
 fn convert_serde_to_cst_input(value: serde_json::Value) -> CstInputValue {
@@ -988,6 +1161,20 @@ impl Node {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
   }
 
+  /// Returns whether a blank line separates this from whatever was written before it.
+  /// @returns true if a blank line precedes it
+  #[wasm_bindgen(js_name = hasBlankLineBefore)]
+  pub fn has_blank_line_before(&self) -> bool {
+    self.inner.has_blank_line_before()
+  }
+
+  /// Returns the node exactly as it was written, trivia and all.
+  /// @returns The JSONC text of this node
+  #[wasm_bindgen(js_name = toString)]
+  pub fn to_string_output(&self) -> String {
+    self.inner.to_string()
+  }
+
   /// Converts this CST node to a plain JavaScript value.
   /// This recursively converts objects, arrays, and primitives to their JavaScript equivalents.
   /// Comments and formatting information are discarded.
@@ -1191,6 +1378,73 @@ impl JsonObject {
     let cst_input = js_value_to_cst_input(&value)?;
     let prop = self.inner.insert(index, key, cst_input);
     Ok(ObjectProp { inner: prop })
+  }
+
+  fn sort<'a>(&'a self, options: &'a JsValue) -> cst::PropertySort<'a> {
+    let mut sort = self.inner.sort_properties();
+    match sort_option(options, "pinCommentHeaders") {
+      Some(rule) if rule.is_function() => {
+        sort = sort.pin_comment_headers_with(move |prop, comments| {
+          let element = JsValue::from(ObjectProp {
+            inner: prop.clone(),
+          });
+          pinned_comment_count(&rule, &element, comments)
+        })
+      }
+      Some(rule) if rule.is_truthy() => sort = sort.pin_comment_headers(),
+      _ => {}
+    }
+    if sorts_within_groups(options) {
+      sort = sort.within_groups();
+    }
+    sort
+  }
+
+  /// Sorts the properties of the object.
+  ///
+  /// What was written with a property travels with it: the comments and blank lines above it, and
+  /// a comment written after it on the same line. Commas are moved to suit the new order.
+  ///
+  /// The sort is stable, so properties that compare equal keep the order they were written in.
+  /// If the comparator throws, the object is left exactly as it was and the error is rethrown.
+  /// @param compare - Compares two properties, like the callback `Array.prototype.sort` takes.
+  /// Properties are sorted by name when it is omitted.
+  #[wasm_bindgen(js_name = sortProperties)]
+  pub fn sort_properties(
+    &self,
+    compare: Option<PropertyComparator>,
+    options: Option<PropertySortOptions>,
+  ) -> Result<(), JsValue> {
+    let options = options.map(JsValue::from).unwrap_or(JsValue::UNDEFINED);
+    let options = &options;
+    if let Some(compare) = &compare
+      && !JsValue::from(compare).is_function()
+    {
+      return Err(throw_error(
+        "Expected a comparator function; pass sort options as the second argument",
+      ));
+    }
+    let Some(compare) = compare else {
+      self.sort(options).by_key(|prop| prop.decoded_name());
+      return Ok(());
+    };
+    let props = self.inner.properties();
+    let values = props
+      .iter()
+      .map(|prop| {
+        JsValue::from(ObjectProp {
+          inner: prop.clone(),
+        })
+      })
+      .collect::<Vec<_>>();
+    let order = comparator_order(compare.unchecked_ref(), &values)?;
+    let child_indexes =
+      props.iter().map(|p| p.child_index()).collect::<Vec<_>>();
+    let ranks = ranks_by_child_index(&order, &child_indexes);
+    self
+      .sort(options)
+      .by_key(|prop| ranks.get(&prop.child_index()).copied());
+    Ok(())
   }
 
   /// Configures whether trailing commas should be used in this object.
@@ -1447,6 +1701,28 @@ impl ObjectProp {
     self
       .name()
       .ok_or_else(|| throw_error("Expected a property name, but found none"))
+  }
+
+  /// Returns whether a blank line separates this from whatever was written before it.
+  /// @returns true if a blank line precedes it
+  #[wasm_bindgen(js_name = hasBlankLineBefore)]
+  pub fn has_blank_line_before(&self) -> bool {
+    self.inner.has_blank_line_before()
+  }
+
+  /// Returns the property exactly as it was written, trivia and all.
+  /// @returns The JSONC text of this property
+  #[wasm_bindgen(js_name = toString)]
+  pub fn to_string_output(&self) -> String {
+    self.inner.to_string()
+  }
+
+  /// Returns the property name with any escapes in it resolved.
+  /// This is the name to sort or look a property up by.
+  /// @returns The decoded name, or undefined if the name is malformed or cannot be decoded
+  #[wasm_bindgen(js_name = decodedName)]
+  pub fn decoded_name(&self) -> Option<String> {
+    self.inner.decoded_name()
   }
 
   /// Returns the property value.
@@ -1767,6 +2043,75 @@ impl JsonArray {
     let cst_input = js_value_to_cst_input(&value)?;
     let node = self.inner.insert(index, cst_input);
     Ok(Node { inner: node })
+  }
+
+  fn sort<'a>(&'a self, options: &'a JsValue) -> cst::ElementSort<'a> {
+    let mut sort = self.inner.sort_elements();
+    match sort_option(options, "pinCommentHeaders") {
+      Some(rule) if rule.is_function() => {
+        sort = sort.pin_comment_headers_with(move |element, comments| {
+          let element = JsValue::from(Node {
+            inner: element.clone(),
+          });
+          pinned_comment_count(&rule, &element, comments)
+        })
+      }
+      Some(rule) if rule.is_truthy() => sort = sort.pin_comment_headers(),
+      _ => {}
+    }
+    if sorts_within_groups(options) {
+      sort = sort.within_groups();
+    }
+    sort
+  }
+
+  /// Sorts the elements of the array.
+  ///
+  /// What was written with an element travels with it: the comments and blank lines above it, and
+  /// a comment written after it on the same line. Commas are moved to suit the new order.
+  ///
+  /// The sort is stable, so elements that compare equal keep the order they were written in.
+  /// If the comparator throws, the array is left exactly as it was and the error is rethrown.
+  /// @param compare - Compares two elements, like the callback `Array.prototype.sort` takes.
+  /// Elements are sorted by their text when it is omitted.
+  #[wasm_bindgen(js_name = sortElements)]
+  pub fn sort_elements(
+    &self,
+    compare: Option<ElementComparator>,
+    options: Option<ElementSortOptions>,
+  ) -> Result<(), JsValue> {
+    let options = options.map(JsValue::from).unwrap_or(JsValue::UNDEFINED);
+    let options = &options;
+    if let Some(compare) = &compare
+      && !JsValue::from(compare).is_function()
+    {
+      return Err(throw_error(
+        "Expected a comparator function; pass sort options as the second argument",
+      ));
+    }
+    let Some(compare) = compare else {
+      self.sort(options).by_key(|element| element.to_string());
+      return Ok(());
+    };
+    let elements = self.inner.elements();
+    let values = elements
+      .iter()
+      .map(|element| {
+        JsValue::from(Node {
+          inner: element.clone(),
+        })
+      })
+      .collect::<Vec<_>>();
+    let order = comparator_order(compare.unchecked_ref(), &values)?;
+    let child_indexes = elements
+      .iter()
+      .map(|element| element.child_index())
+      .collect::<Vec<_>>();
+    let ranks = ranks_by_child_index(&order, &child_indexes);
+    self
+      .sort(options)
+      .by_key(|element| ranks.get(&element.child_index()).copied());
+    Ok(())
   }
 
   /// Configures whether trailing commas should be used in this array.

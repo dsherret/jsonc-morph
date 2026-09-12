@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertThrows } from "@std/assert";
 import { parse, parseStrict, parseToValue, parseToValueStrict } from "./mod.ts";
 
 Deno.test("RootNode - parse simple object", () => {
@@ -1988,4 +1988,482 @@ Deno.test("parseToValueStrict - can selectively enable extensions", () => {
     allowTrailingCommas: true,
   }) as { items: number[] };
   assertEquals(result.items, [1, 2, 3]);
+});
+
+Deno.test("JsonObject - sortProperties sorts by name by default", () => {
+  const root = parse(`{
+  "b": 2,
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  "b": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties keeps comments with their property", () => {
+  const root = parse(`{
+  // about b
+  "b": 2, // trailing b
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  // about b
+  "b": 2 // trailing b
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties takes a comparator", () => {
+  const root = parse(`{
+  "alpha": 1,
+  "c": 3,
+  "bb": 2
+}`);
+  // by name length, then by name
+  root.asObjectOrThrow().sortProperties((a, b) => {
+    const left = a.decodedName() ?? "";
+    const right = b.decodedName() ?? "";
+    return left.length - right.length || left.localeCompare(right);
+  });
+
+  assertEquals(
+    root.toString(),
+    `{
+  "c": 3,
+  "bb": 2,
+  "alpha": 1
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties can write a conventional order", () => {
+  const order = ["name", "version", "description", "dependencies"];
+  const root = parse(`{
+  "dependencies": {},
+  "description": "an example",
+  "version": "1.0.0",
+  "name": "example"
+}`);
+  root.asObjectOrThrow().sortProperties((a, b) =>
+    order.indexOf(a.decodedName() ?? "") - order.indexOf(b.decodedName() ?? "")
+  );
+
+  assertEquals(
+    root.toString(),
+    `{
+  "name": "example",
+  "version": "1.0.0",
+  "description": "an example",
+  "dependencies": {}
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties is stable", () => {
+  const root = parse(`{
+  "b": 1,
+  "a": "first",
+  "a": "second"
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": "first",
+  "a": "second",
+  "b": 1
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties keeps the trailing comma style", () => {
+  const root = parse(`{
+  "b": 2,
+  "a": 1,
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  "b": 2,
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties rethrows and leaves the object alone", () => {
+  const text = `{
+  "b": 2,
+  "a": 1
+}`;
+  const root = parse(text);
+  assertThrows(
+    () =>
+      root.asObjectOrThrow().sortProperties(() => {
+        throw new Error("nope");
+      }),
+    Error,
+    "nope",
+  );
+  assertEquals(root.toString(), text);
+});
+
+Deno.test("JsonObject - sortProperties leaves nested objects alone", () => {
+  const root = parse(`{
+  "b": { "z": 1, "y": 2 },
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  "b": { "z": 1, "y": 2 }
+}`,
+  );
+});
+
+Deno.test("JsonArray - sortElements sorts by text by default", () => {
+  const root = parse(`[
+  "c",
+  "a",
+  "b"
+]`);
+  root.asArrayOrThrow().sortElements();
+
+  assertEquals(
+    root.toString(),
+    `[
+  "a",
+  "b",
+  "c"
+]`,
+  );
+});
+
+Deno.test("JsonArray - sortElements takes a comparator", () => {
+  const root = parse(`[
+  // about 10
+  10,
+  2
+]`);
+  root.asArrayOrThrow().sortElements((a, b) =>
+    Number(a.toString()) - Number(b.toString())
+  );
+
+  assertEquals(
+    root.toString(),
+    `[
+  2,
+  // about 10
+  10
+]`,
+  );
+});
+
+Deno.test("JsonArray - sortElements rethrows and leaves the array alone", () => {
+  const text = `[2, 1]`;
+  const root = parse(text);
+  assertThrows(
+    () =>
+      root.asArrayOrThrow().sortElements(() => {
+        throw new Error("nope");
+      }),
+    Error,
+    "nope",
+  );
+  assertEquals(root.toString(), text);
+});
+
+Deno.test("ObjectProp - decodedName resolves escapes", () => {
+  const root = parse(`{ "\\u0061": 1 }`);
+  const prop = root.asObjectOrThrow().properties()[0];
+
+  assertEquals(prop.decodedName(), "a");
+});
+
+Deno.test("JsonObject - sortProperties can keep a comment header in place", () => {
+  const text = `{
+  "prop": 1,
+
+  // section
+  "prop2": 2,
+  "prop1": 1
+}`;
+
+  // by default the heading is written above prop2, so it travels with it
+  const drifted = parse(text);
+  drifted.asObjectOrThrow().sortProperties();
+  assertEquals(
+    drifted.toString(),
+    `{
+  "prop": 1,
+  "prop1": 1,
+
+  // section
+  "prop2": 2
+}`,
+  );
+
+  const kept = parse(text);
+  kept.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: true,
+  });
+  assertEquals(
+    kept.toString(),
+    `{
+  "prop": 1,
+
+  // section
+  "prop1": 1,
+  "prop2": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders leaves an attached comment travelling", () => {
+  const root = parse(`{
+  // about b
+  "b": 2,
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: true,
+  });
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  // about b
+  "b": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders works with a comparator", () => {
+  const root = parse(`{
+  "c": 3,
+
+  // section
+  "b": 2,
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties(
+    (a, b) => (a.decodedName() ?? "").localeCompare(b.decodedName() ?? ""),
+    { pinCommentHeaders: true },
+  );
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+
+  // section
+  "b": 2,
+  "c": 3
+}`,
+  );
+});
+
+// the option pins the heading; it does not stop elements sorting past the blank line
+Deno.test("JsonArray - sortElements takes the same option", () => {
+  const root = parse(`[
+  3,
+
+  // section
+  2,
+  1
+]`);
+  root.asArrayOrThrow().sortElements(undefined, {
+    pinCommentHeaders: true,
+  });
+
+  assertEquals(
+    root.toString(),
+    `[
+  1,
+
+  // section
+  2,
+  3
+]`,
+  );
+});
+
+Deno.test("JsonObject - withinGroups sorts each run on its own", () => {
+  const root = parse(`{
+  "m": 1,
+
+  // section
+  "z": 2,
+  "a": 3
+}`);
+  root.asObjectOrThrow().sortProperties(undefined, { withinGroups: true });
+
+  // "m" is a group of its own, so it stays above the blank line
+  assertEquals(
+    root.toString(),
+    `{
+  "m": 1,
+
+  // section
+  "a": 3,
+  "z": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders takes a function for partial headers", () => {
+  const root = parse(`{
+  "c": 3,
+
+  // section
+  // about b
+  "b": 2,
+  "a": 1
+}`);
+  // only the first comment heads the group; the rest belong to the property
+  root.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: (member, _comments) =>
+      member.hasBlankLineBefore() ? 1 : 0,
+  });
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+
+  // section
+  // about b
+  "b": 2,
+  "c": 3
+}`,
+  );
+});
+
+Deno.test("JsonObject - pinCommentHeaders function is handed the comments above the member", () => {
+  const root = parse(`{
+  "b": 2,
+
+  // section
+  // about a
+  "a": 1
+}`);
+  const seen: string[][] = [];
+  root.asObjectOrThrow().sortProperties(undefined, {
+    pinCommentHeaders: (_member, comments) => {
+      seen.push(comments.map((c) => c.toString()));
+      return 0;
+    },
+  });
+
+  assertEquals(seen, [[], ["// section", "// about a"]]);
+});
+
+Deno.test("JsonObject - a comparator that contradicts itself is survivable", () => {
+  // Rust's own sort answers a comparator like this by panicking, which through wasm would take
+  // the whole module down. JavaScript comparators contradict themselves all the time.
+  const root = parse(
+    `{${Array.from({ length: 26 }, (_, i) => `"k${i}": ${i}`).join(", ")}}`,
+  );
+  root.asObjectOrThrow().sortProperties(() => (Math.random() < 0.5 ? -1 : 1));
+
+  // whatever order it landed in, the document still holds the same 26 properties
+  const value = root.toValue() as Record<string, number>;
+  assertEquals(Object.keys(value).length, 26);
+});
+
+Deno.test("JsonObject - a comparator returning a boolean is read as a number", () => {
+  const root = parse(`{ "b": 2, "a": 1, "c": 3 }`);
+  // `Array.prototype.sort` applies ToNumber, so `true` is 1 and `false` is 0
+  root.asObjectOrThrow().sortProperties((a, b) =>
+    (a.decodedName() ?? "") > (b.decodedName() ?? "") as unknown as number
+  );
+
+  assertEquals(root.toString(), `{ "a": 1, "b": 2, "c": 3 }`);
+});
+
+Deno.test("ObjectProp - toString returns the property as written", () => {
+  const root = parse(`{ "a"  :  1 }`);
+  const prop = root.asObjectOrThrow().properties()[0];
+
+  assertEquals(prop.toString(), `"a"  :  1`);
+});
+
+Deno.test("JsonArray - withinGroups sorts each run on its own", () => {
+  const root = parse(`[
+  30,
+
+  // small ones
+  20,
+  10
+]`);
+  root.asArrayOrThrow().sortElements(
+    (a, b) => Number(a.toString()) - Number(b.toString()),
+    { withinGroups: true },
+  );
+
+  assertEquals(
+    root.toString(),
+    `[
+  30,
+
+  // small ones
+  10,
+  20
+]`,
+  );
+});
+
+Deno.test("JsonObject - withinGroups and pinCommentHeaders together", () => {
+  const root = parse(`{
+  "m": 1,
+
+  // section
+  "z": 2,
+  // about y
+  "y": 3
+}`);
+  root.asObjectOrThrow().sortProperties(undefined, {
+    withinGroups: true,
+    pinCommentHeaders: true,
+  });
+
+  // the group boundary holds "// section" in place and "// about y" travels with its property
+  assertEquals(
+    root.toString(),
+    `{
+  "m": 1,
+
+  // section
+  // about y
+  "y": 3,
+  "z": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - options passed where the comparator goes is a clear error", () => {
+  const root = parse(`{ "b": 2, "a": 1 }`);
+  assertThrows(
+    // deno-lint-ignore no-explicit-any
+    () => root.asObjectOrThrow().sortProperties({ withinGroups: true } as any),
+    Error,
+    "Expected a comparator function",
+  );
 });
