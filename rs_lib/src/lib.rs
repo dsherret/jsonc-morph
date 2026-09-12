@@ -1,3 +1,6 @@
+use std::cmp::Ordering;
+use std::collections::HashMap;
+
 use js_sys::JsString;
 use jsonc_parser::ParseOptions;
 use jsonc_parser::cst;
@@ -19,6 +22,12 @@ extern "C" {
 
   #[wasm_bindgen(typescript_type = "JsonValue")]
   pub type JsonValue;
+
+  #[wasm_bindgen(typescript_type = "PropertyComparator")]
+  pub type PropertyComparator;
+
+  #[wasm_bindgen(typescript_type = "ElementComparator")]
+  pub type ElementComparator;
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -47,6 +56,12 @@ export interface ParseOptions {
 }
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+/** Compares two object properties, like the callback `Array.prototype.sort` takes. */
+export type PropertyComparator = (a: ObjectProp, b: ObjectProp) => number;
+
+/** Compares two array elements, like the callback `Array.prototype.sort` takes. */
+export type ElementComparator = (a: Node, b: Node) => number;
 "#;
 
 /// Parses a JSONC (JSON with Comments) string into a concrete syntax tree.
@@ -162,6 +177,53 @@ fn js_value_to_cst_input(value: &JsValue) -> Result<CstInputValue, JsValue> {
 
   // Convert serde_json::Value to CstInputValue
   Ok(convert_serde_to_cst_input(serde_value))
+}
+
+/// Works out the order a JavaScript comparator puts some nodes in.
+///
+/// The comparing is done up front and on its own, so that a comparator that throws leaves the
+/// document exactly as it was rather than half sorted. The caller then applies the order as a key,
+/// which keeps the sort itself consistent whatever the comparator answered.
+fn comparator_order(
+  compare: &js_sys::Function,
+  values: &[JsValue],
+) -> Result<Vec<usize>, JsValue> {
+  let mut error: Option<JsValue> = None;
+  let mut order = (0..values.len()).collect::<Vec<_>>();
+  order.sort_by(|&left, &right| {
+    if error.is_some() {
+      return Ordering::Equal;
+    }
+    match compare.call2(&JsValue::NULL, &values[left], &values[right]) {
+      Ok(result) => match result.as_f64() {
+        Some(answer) if answer < 0.0 => Ordering::Less,
+        Some(answer) if answer > 0.0 => Ordering::Greater,
+        // NaN and undefined mean "no opinion", the same as Array.prototype.sort takes them
+        _ => Ordering::Equal,
+      },
+      Err(err) => {
+        error = Some(err);
+        Ordering::Equal
+      }
+    }
+  });
+  match error {
+    Some(err) => Err(err),
+    None => Ok(order),
+  }
+}
+
+/// Turns an order over positions into the rank of each node, looked up by where it sits among its
+/// siblings, which is what identifies a node while nothing has moved yet.
+fn ranks_by_child_index(
+  order: &[usize],
+  child_indexes: &[usize],
+) -> HashMap<usize, usize> {
+  order
+    .iter()
+    .enumerate()
+    .map(|(rank, &position)| (child_indexes[position], rank))
+    .collect()
 }
 
 fn convert_serde_to_cst_input(value: serde_json::Value) -> CstInputValue {
@@ -988,6 +1050,13 @@ impl Node {
     self.inner.child_at_index(index).map(|n| Node { inner: n })
   }
 
+  /// Returns the node exactly as it was written, trivia and all.
+  /// @returns The JSONC text of this node
+  #[wasm_bindgen(js_name = toString)]
+  pub fn to_string_output(&self) -> String {
+    self.inner.to_string()
+  }
+
   /// Converts this CST node to a plain JavaScript value.
   /// This recursively converts objects, arrays, and primitives to their JavaScript equivalents.
   /// Comments and formatting information are discarded.
@@ -1191,6 +1260,45 @@ impl JsonObject {
     let cst_input = js_value_to_cst_input(&value)?;
     let prop = self.inner.insert(index, key, cst_input);
     Ok(ObjectProp { inner: prop })
+  }
+
+  /// Sorts the properties of the object.
+  ///
+  /// What was written with a property travels with it: the comments and blank lines above it, and
+  /// a comment written after it on the same line. Commas are moved to suit the new order.
+  ///
+  /// The sort is stable, so properties that compare equal keep the order they were written in.
+  /// If the comparator throws, the object is left exactly as it was and the error is rethrown.
+  /// @param compare - Compares two properties, like the callback `Array.prototype.sort` takes.
+  /// Properties are sorted by name when it is omitted.
+  #[wasm_bindgen(js_name = sortProperties)]
+  pub fn sort_properties(
+    &self,
+    compare: Option<PropertyComparator>,
+  ) -> Result<(), JsValue> {
+    let Some(compare) = compare else {
+      self
+        .inner
+        .sort_properties_by_key(|prop| prop.decoded_name());
+      return Ok(());
+    };
+    let props = self.inner.properties();
+    let values = props
+      .iter()
+      .map(|prop| {
+        JsValue::from(ObjectProp {
+          inner: prop.clone(),
+        })
+      })
+      .collect::<Vec<_>>();
+    let order = comparator_order(compare.unchecked_ref(), &values)?;
+    let child_indexes =
+      props.iter().map(|p| p.child_index()).collect::<Vec<_>>();
+    let ranks = ranks_by_child_index(&order, &child_indexes);
+    self
+      .inner
+      .sort_properties_by_key(|prop| ranks.get(&prop.child_index()).copied());
+    Ok(())
   }
 
   /// Configures whether trailing commas should be used in this object.
@@ -1447,6 +1555,14 @@ impl ObjectProp {
     self
       .name()
       .ok_or_else(|| throw_error("Expected a property name, but found none"))
+  }
+
+  /// Returns the property name with any escapes in it resolved.
+  /// This is the name to sort or look a property up by.
+  /// @returns The decoded name, or undefined if the name is malformed or cannot be decoded
+  #[wasm_bindgen(js_name = decodedName)]
+  pub fn decoded_name(&self) -> Option<String> {
+    self.inner.decoded_name()
   }
 
   /// Returns the property value.
@@ -1767,6 +1883,47 @@ impl JsonArray {
     let cst_input = js_value_to_cst_input(&value)?;
     let node = self.inner.insert(index, cst_input);
     Ok(Node { inner: node })
+  }
+
+  /// Sorts the elements of the array.
+  ///
+  /// What was written with an element travels with it: the comments and blank lines above it, and
+  /// a comment written after it on the same line. Commas are moved to suit the new order.
+  ///
+  /// The sort is stable, so elements that compare equal keep the order they were written in.
+  /// If the comparator throws, the array is left exactly as it was and the error is rethrown.
+  /// @param compare - Compares two elements, like the callback `Array.prototype.sort` takes.
+  /// Elements are sorted by their text when it is omitted.
+  #[wasm_bindgen(js_name = sortElements)]
+  pub fn sort_elements(
+    &self,
+    compare: Option<ElementComparator>,
+  ) -> Result<(), JsValue> {
+    let Some(compare) = compare else {
+      self
+        .inner
+        .sort_elements_by_key(|element| element.to_string());
+      return Ok(());
+    };
+    let elements = self.inner.elements();
+    let values = elements
+      .iter()
+      .map(|element| {
+        JsValue::from(Node {
+          inner: element.clone(),
+        })
+      })
+      .collect::<Vec<_>>();
+    let order = comparator_order(compare.unchecked_ref(), &values)?;
+    let child_indexes = elements
+      .iter()
+      .map(|element| element.child_index())
+      .collect::<Vec<_>>();
+    let ranks = ranks_by_child_index(&order, &child_indexes);
+    self.inner.sort_elements_by_key(|element| {
+      ranks.get(&element.child_index()).copied()
+    });
+    Ok(())
   }
 
   /// Configures whether trailing commas should be used in this array.

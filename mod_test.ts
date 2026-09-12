@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertThrows } from "@std/assert";
 import { parse, parseStrict, parseToValue, parseToValueStrict } from "./mod.ts";
 
 Deno.test("RootNode - parse simple object", () => {
@@ -1988,4 +1988,210 @@ Deno.test("parseToValueStrict - can selectively enable extensions", () => {
     allowTrailingCommas: true,
   }) as { items: number[] };
   assertEquals(result.items, [1, 2, 3]);
+});
+
+Deno.test("JsonObject - sortProperties sorts by name by default", () => {
+  const root = parse(`{
+  "b": 2,
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  "b": 2
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties keeps comments with their property", () => {
+  const root = parse(`{
+  // about b
+  "b": 2, // trailing b
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  // about b
+  "b": 2 // trailing b
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties takes a comparator", () => {
+  const root = parse(`{
+  "alpha": 1,
+  "c": 3,
+  "bb": 2
+}`);
+  // by name length, then by name
+  root.asObjectOrThrow().sortProperties((a, b) => {
+    const left = a.decodedName() ?? "";
+    const right = b.decodedName() ?? "";
+    return left.length - right.length || left.localeCompare(right);
+  });
+
+  assertEquals(
+    root.toString(),
+    `{
+  "c": 3,
+  "bb": 2,
+  "alpha": 1
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties can write a conventional order", () => {
+  const order = ["name", "version", "description", "dependencies"];
+  const root = parse(`{
+  "dependencies": {},
+  "description": "an example",
+  "version": "1.0.0",
+  "name": "example"
+}`);
+  root.asObjectOrThrow().sortProperties((a, b) =>
+    order.indexOf(a.decodedName() ?? "") - order.indexOf(b.decodedName() ?? "")
+  );
+
+  assertEquals(
+    root.toString(),
+    `{
+  "name": "example",
+  "version": "1.0.0",
+  "description": "an example",
+  "dependencies": {}
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties is stable", () => {
+  const root = parse(`{
+  "b": 1,
+  "a": "first",
+  "a": "second"
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": "first",
+  "a": "second",
+  "b": 1
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties keeps the trailing comma style", () => {
+  const root = parse(`{
+  "b": 2,
+  "a": 1,
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  "b": 2,
+}`,
+  );
+});
+
+Deno.test("JsonObject - sortProperties rethrows and leaves the object alone", () => {
+  const text = `{
+  "b": 2,
+  "a": 1
+}`;
+  const root = parse(text);
+  assertThrows(
+    () =>
+      root.asObjectOrThrow().sortProperties(() => {
+        throw new Error("nope");
+      }),
+    Error,
+    "nope",
+  );
+  assertEquals(root.toString(), text);
+});
+
+Deno.test("JsonObject - sortProperties leaves nested objects alone", () => {
+  const root = parse(`{
+  "b": { "z": 1, "y": 2 },
+  "a": 1
+}`);
+  root.asObjectOrThrow().sortProperties();
+
+  assertEquals(
+    root.toString(),
+    `{
+  "a": 1,
+  "b": { "z": 1, "y": 2 }
+}`,
+  );
+});
+
+Deno.test("JsonArray - sortElements sorts by text by default", () => {
+  const root = parse(`[
+  "c",
+  "a",
+  "b"
+]`);
+  root.asArrayOrThrow().sortElements();
+
+  assertEquals(
+    root.toString(),
+    `[
+  "a",
+  "b",
+  "c"
+]`,
+  );
+});
+
+Deno.test("JsonArray - sortElements takes a comparator", () => {
+  const root = parse(`[
+  // about 10
+  10,
+  2
+]`);
+  root.asArrayOrThrow().sortElements((a, b) =>
+    Number(a.toString()) - Number(b.toString())
+  );
+
+  assertEquals(
+    root.toString(),
+    `[
+  2,
+  // about 10
+  10
+]`,
+  );
+});
+
+Deno.test("JsonArray - sortElements rethrows and leaves the array alone", () => {
+  const text = `[2, 1]`;
+  const root = parse(text);
+  assertThrows(
+    () =>
+      root.asArrayOrThrow().sortElements(() => {
+        throw new Error("nope");
+      }),
+    Error,
+    "nope",
+  );
+  assertEquals(root.toString(), text);
+});
+
+Deno.test("ObjectProp - decodedName resolves escapes", () => {
+  const root = parse(`{ "\\u0061": 1 }`);
+  const prop = root.asObjectOrThrow().properties()[0];
+
+  assertEquals(prop.decodedName(), "a");
 });

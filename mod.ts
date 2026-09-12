@@ -1,5 +1,6 @@
 export {
   BooleanLit,
+  type ElementComparator,
   JsonArray,
   JsonObject,
   type JsonValue,
@@ -11,6 +12,7 @@ export {
   parse,
   type ParseOptions,
   parseToValue,
+  type PropertyComparator,
   RootNode,
   StringLit,
   WordLit,
