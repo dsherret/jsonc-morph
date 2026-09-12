@@ -9,7 +9,3 @@ codegen-units = 1
 incremental = true
 lto = true
 opt-level = "z"
-
-# TODO: remove once a jsonc-parser with CST sorting is released
-[patch.crates-io]
-jsonc-parser = { path = "../jsonc-parser" }
