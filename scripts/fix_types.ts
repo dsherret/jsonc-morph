@@ -49,7 +49,7 @@ const replacements: Array<[RegExp, string]> = [
   ],
   [/toValue\(\): any/g, "toValue(): JsonValue"],
 
-  [/newlineKind\(\): string/g, 'newlineKind(): "\\n" | "\\r\\n"'],
+  [/newlineKind\(\): string/g, 'newlineKind(): "\\n" | "\\r\\n" | "\\r"'],
 ];
 
 // Apply all replacements
