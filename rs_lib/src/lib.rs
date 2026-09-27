@@ -59,6 +59,16 @@ export interface ParseOptions {
   allowHexadecimalNumbers?: boolean;
   /** Allow unary plus on numbers (e.g., +42). */
   allowUnaryPlusNumbers?: boolean;
+  /** Allow a leading or trailing decimal point on numbers (e.g., .5 or 5.). */
+  allowBareDecimalPointNumbers?: boolean;
+  /**
+   * Allow the numbers Infinity, -Infinity and NaN.
+   *
+   * Only `parse` accepts them. `parseToValue` cannot represent them and throws.
+   */
+  allowNonFiniteNumbers?: boolean;
+  /** Allow JSON5 string escapes (e.g., \x41, \v and line continuations). */
+  allowExtendedStringEscapes?: boolean;
 }
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -191,6 +201,24 @@ fn parse_options_from_js(obj: &JsValue) -> ParseOptions {
       .and_then(|v| v.as_bool())
       .unwrap_or(defaults.allow_unary_plus_numbers);
 
+  let allow_bare_decimal_point_numbers =
+    js_sys::Reflect::get(obj, &"allowBareDecimalPointNumbers".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_bare_decimal_point_numbers);
+
+  let allow_non_finite_numbers =
+    js_sys::Reflect::get(obj, &"allowNonFiniteNumbers".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_non_finite_numbers);
+
+  let allow_extended_string_escapes =
+    js_sys::Reflect::get(obj, &"allowExtendedStringEscapes".into())
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(defaults.allow_extended_string_escapes);
+
   ParseOptions {
     allow_comments,
     allow_trailing_commas,
@@ -199,6 +227,9 @@ fn parse_options_from_js(obj: &JsValue) -> ParseOptions {
     allow_single_quoted_strings,
     allow_hexadecimal_numbers,
     allow_unary_plus_numbers,
+    allow_bare_decimal_point_numbers,
+    allow_non_finite_numbers,
+    allow_extended_string_escapes,
   }
 }
 
@@ -369,6 +400,7 @@ fn convert_serde_to_cst_input(value: serde_json::Value) -> CstInputValue {
 thread_local! {
   static LF: JsString = JsString::from("\n");
   static CRLF: JsString = JsString::from("\r\n");
+  static CR: JsString = JsString::from("\r");
 }
 
 /// Represents the root node of a JSONC document.
@@ -530,12 +562,13 @@ impl RootNode {
   }
 
   /// Returns the newline kind used in the document.
-  /// @returns Either "\n" or "\r\n"
+  /// @returns One of "\n", "\r\n", or "\r"
   #[wasm_bindgen(js_name = newlineKind)]
   pub fn newline_kind(&self) -> JsString {
     match self.inner.newline_kind() {
       cst::CstNewlineKind::LineFeed => LF.with(|s| s.clone()),
       cst::CstNewlineKind::CarriageReturnLineFeed => CRLF.with(|s| s.clone()),
+      cst::CstNewlineKind::CarriageReturn => CR.with(|s| s.clone()),
     }
   }
 

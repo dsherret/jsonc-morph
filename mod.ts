@@ -41,6 +41,9 @@ const STRICT_DEFAULTS: Required<ParseOptions> = {
   allowSingleQuotedStrings: false,
   allowHexadecimalNumbers: false,
   allowUnaryPlusNumbers: false,
+  allowBareDecimalPointNumbers: false,
+  allowNonFiniteNumbers: false,
+  allowExtendedStringEscapes: false,
 };
 
 /**

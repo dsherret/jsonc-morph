@@ -1818,6 +1818,53 @@ Deno.test("parseToValue - allowUnaryPlusNumbers option", () => {
   assertEquals(result.value, 100);
 });
 
+Deno.test("parseToValue - allowBareDecimalPointNumbers option", () => {
+  const text = "[.5, -.5, 5.]";
+  assertEquals(parseToValue(text), [0.5, -0.5, 5]);
+  assertThrows(() =>
+    parseToValue(text, { allowBareDecimalPointNumbers: false })
+  );
+});
+
+Deno.test("parse - allowNonFiniteNumbers option", () => {
+  const text = "[Infinity, -Infinity, NaN]";
+  const elements = parse(text).asArrayOrThrow().elements();
+  assertEquals(elements.map((e) => e.numberValue()), [
+    "Infinity",
+    "-Infinity",
+    "NaN",
+  ]);
+  assertThrows(() => parse(text, { allowNonFiniteNumbers: false }));
+});
+
+Deno.test("parseToValue - allowExtendedStringEscapes option", () => {
+  const text = "'\\x41\\v\\0 it\\'s a\\\nb'";
+  assertEquals(parseToValue(text), "A\v\0 it's ab");
+  assertThrows(() => parseToValue(text, { allowExtendedStringEscapes: false }));
+  // each escape is rejected on its own
+  for (const escape of ["\\x41", "\\v", "\\0", "\\\n"]) {
+    assertThrows(() =>
+      parseToValue(`"${escape}"`, { allowExtendedStringEscapes: false })
+    );
+  }
+});
+
+Deno.test("parse - property names can be keywords or contain $", () => {
+  const text = "{ true: 1, null: 2, $id: 3 }";
+  assertEquals(parseToValue(text), { true: 1, null: 2, $id: 3 });
+  assertThrows(() =>
+    parseToValue(text, { allowLooseObjectPropertyNames: false })
+  );
+  assertThrows(() => parseStrict(text));
+});
+
+Deno.test("RootNode - newlineKind detects a lone carriage return", () => {
+  const root = parse("[ // note\r]");
+  assertEquals(root.newlineKind(), "\r");
+  root.asArrayOrThrow().append(3);
+  assertEquals(root.toString(), "[ // note\r  3\r]");
+});
+
 Deno.test("parse - all new options combined", () => {
   const text = `{
     'name': 'test'
@@ -1913,6 +1960,15 @@ Deno.test("parseStrict - rejects unary plus by default", () => {
   } catch (error) {
     assertExists(error);
   }
+});
+
+Deno.test("parseStrict - rejects JSON5 numbers and escapes by default", () => {
+  assertThrows(() => parseStrict("[.5]"));
+  assertThrows(() => parseStrict("[Infinity]"));
+  assertThrows(() => parseStrict('["\\x41"]'));
+  assertThrows(() => parseToValueStrict("[5.]"));
+  assertThrows(() => parseStrict("[NaN]"));
+  assertThrows(() => parseToValueStrict('["\\v"]'));
 });
 
 Deno.test("parseStrict - rejects missing commas by default", () => {
