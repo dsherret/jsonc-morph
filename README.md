@@ -9,14 +9,6 @@ This is especially useful for making programmatic changes to JSON config files.
 
 ## Install
 
-Deno:
-
-```
-deno add jsr:@david/jsonc-morph
-```
-
-Or with npm:
-
 ```
 npm install jsonc-morph
 ```
@@ -24,7 +16,7 @@ npm install jsonc-morph
 ## Example
 
 ```ts
-import { parse, parseToValue } from "@david/jsonc-morph";
+import { parse, parseToValue } from "jsonc-morph";
 
 // parse directly to a plain JavaScript value
 const config = parseToValue(`{
@@ -73,7 +65,7 @@ trailing commas, single-quoted strings, hexadecimal numbers, etc.). You can
 customize this behaviour by passing options:
 
 ```ts
-import { parse, parseToValue } from "@david/jsonc-morph";
+import { parse, parseToValue } from "jsonc-morph";
 
 // disable specific extensions
 const root = parse(text, {
@@ -97,7 +89,7 @@ For strict JSON parsing (only allow JSON), use `parseStrict` or
 `parseToValueStrict`:
 
 ```ts
-import { parseStrict, parseToValueStrict } from "@david/jsonc-morph";
+import { parseStrict, parseToValueStrict } from "jsonc-morph";
 
 // all extensions disabled by default
 const root = parseStrict('{"name": "test"}');

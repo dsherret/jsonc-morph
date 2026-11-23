@@ -31,5 +31,23 @@ await build({
     // steps to run after building and before running the tests
     Deno.copyFileSync("LICENSE", "npm/LICENSE");
     Deno.copyFileSync("README.md", "npm/README.md");
+
+    // dnt infers declarations from the js and loses the wasm-bindgen types
+    const dts = Deno.readTextFileSync("lib/rs_lib.d.ts");
+    for (const dir of ["esm", "script"]) {
+      Deno.writeTextFileSync(
+        `npm/${dir}/lib/rs_lib.d.ts`,
+        `/// <reference lib="esnext.disposable" />\n${dts}`,
+      );
+      for (
+        const file of [
+          "rs_lib.d.ts.map",
+          "rs_lib.internal.d.ts",
+          "rs_lib.internal.d.ts.map",
+        ]
+      ) {
+        Deno.removeSync(`npm/${dir}/lib/${file}`);
+      }
+    }
   },
 });

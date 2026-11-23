@@ -49,6 +49,9 @@ jobs:
       - name: npm build
         run: deno task build:npm ${{steps.get_tag_version.outputs.TAG_VERSION}}
 
+      - name: npm types
+        run: deno task check:npm-types
+
       - name: jsr publish
         run: deno run -A @david/publish-on-tag
       - name: npm publish
