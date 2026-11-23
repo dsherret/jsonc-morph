@@ -39,15 +39,7 @@ await build({
         `npm/${dir}/lib/rs_lib.d.ts`,
         `/// <reference lib="esnext.disposable" />\n${dts}`,
       );
-      for (
-        const file of [
-          "rs_lib.d.ts.map",
-          "rs_lib.internal.d.ts",
-          "rs_lib.internal.d.ts.map",
-        ]
-      ) {
-        Deno.removeSync(`npm/${dir}/lib/${file}`);
-      }
+      Deno.removeSync(`npm/${dir}/lib/rs_lib.internal.d.ts`);
     }
   },
 });
